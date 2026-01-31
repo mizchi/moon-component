@@ -1,0 +1,11 @@
+[metadata]
+name = "local:myapp2"
+version = "0.1.0"
+# description = ""
+# licenses = "MIT"
+
+[dependencies]
+# "wasi:http" = "0.2.0"
+
+[overrides]
+# "dep:name" = { path = "./path/to/wit" }
