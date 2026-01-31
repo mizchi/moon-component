@@ -1,0 +1,10 @@
+{
+  "is-main": true,
+  "import": [
+    "moonbitlang/core/json",
+    { "path": "moonbitlang/x/fs", "alias": "fs" },
+    { "path": "moonbitlang/x/sys", "alias": "sys" },
+    { "path": "mizchi/moon_component/src", "alias": "codegen" },
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" }
+  ]
+}

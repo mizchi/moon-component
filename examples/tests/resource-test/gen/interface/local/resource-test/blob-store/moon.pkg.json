@@ -1,0 +1,30 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "resource-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportBlobNew:local:resource-test/blob-store#[constructor]blob",
+        "wasmExportBlobSize:local:resource-test/blob-store#[method]blob.size",
+        "wasmExportBlobRead:local:resource-test/blob-store#[method]blob.read",
+        "wasmExportBlobWrite:local:resource-test/blob-store#[method]blob.write",
+        "wasmExportCreateBlob:local:resource-test/blob-store#create-blob",
+        "wasmExportGetBlobSize:local:resource-test/blob-store#get-blob-size",
+        "wasmExportConsumeBlob:local:resource-test/blob-store#consume-blob"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportBlobNew:local:resource-test/blob-store#[constructor]blob",
+        "wasmExportBlobSize:local:resource-test/blob-store#[method]blob.size",
+        "wasmExportBlobRead:local:resource-test/blob-store#[method]blob.read",
+        "wasmExportBlobWrite:local:resource-test/blob-store#[method]blob.write",
+        "wasmExportCreateBlob:local:resource-test/blob-store#create-blob",
+        "wasmExportGetBlobSize:local:resource-test/blob-store#get-blob-size",
+        "wasmExportConsumeBlob:local:resource-test/blob-store#consume-blob"
+      ]
+    }
+  }
+}

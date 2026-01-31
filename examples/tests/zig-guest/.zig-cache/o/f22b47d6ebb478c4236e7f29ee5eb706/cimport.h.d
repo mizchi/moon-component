@@ -1,0 +1,23 @@
+cimport.o: \
+  wit-bindgen-moonbit/examples/tests/zig-guest/.zig-cache/o/f22b47d6ebb478c4236e7f29ee5eb706/cimport.h \
+  /Users/mz/ghq/github.com/mizchi/wit-bindgen-moonbit/examples/tests/zig-guest/src/bindings/types_test.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/stdint.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/generic-musl/stdint.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/bits/alltypes.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/__struct_timeval.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/__typedef_time_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/__typedef_suseconds_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/__struct_timespec.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/__struct_iovec.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/stddef.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/generic-musl/stddef.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_size_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/wasm-wasi-musl/bits/stdint.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/stdbool.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/libc/include/generic-musl/stdbool.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_header_macro.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_ptrdiff_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_wchar_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_null.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_max_align_t.h \
+  /Users/mz/brew/Cellar/zig/0.15.2/lib/zig/include/__stddef_offsetof.h

@@ -1,0 +1,119 @@
+{
+  "resolve": {
+    "interfaces": [
+      {
+        "functions": {
+          "add-points": {
+            "kind": "freestanding",
+            "name": "add-points",
+            "params": [
+              { "name": "a", "type": 0 },
+              { "name": "b", "type": 0 }
+            ],
+            "result": 0
+          },
+          "area": {
+            "kind": "freestanding",
+            "name": "area",
+            "params": [
+              { "name": "s", "type": 1 }
+            ],
+            "result": 2
+          },
+          "get-items": {
+            "kind": "freestanding",
+            "name": "get-items",
+            "params": [],
+            "result": 4
+          },
+          "greet": {
+            "kind": "freestanding",
+            "name": "greet",
+            "params": [
+              { "name": "name", "type": "string" }
+            ],
+            "result": "string"
+          },
+          "parse-int": {
+            "kind": "freestanding",
+            "name": "parse-int",
+            "params": [
+              { "name": "s", "type": "string" }
+            ],
+            "result": 3
+          }
+        },
+        "name": "types",
+        "package": 0,
+        "types": {
+          "point": 0,
+          "shape": 1
+        }
+      }
+    ],
+    "packages": [
+      {
+        "interfaces": { "types": 0 },
+        "name": "my:complex",
+        "worlds": { "example": 0 }
+      }
+    ],
+    "types": [
+      {
+        "kind": {
+          "record": {
+            "fields": [
+              { "name": "x", "type": "s32" },
+              { "name": "y", "type": "s32" }
+            ]
+          }
+        },
+        "name": "point",
+        "owner": { "interface": 0 }
+      },
+      {
+        "kind": {
+          "variant": {
+            "cases": [
+              { "name": "circle", "type": "s32" },
+              { "name": "rectangle", "type": 0 },
+              { "name": "none", "type": null }
+            ]
+          }
+        },
+        "name": "shape",
+        "owner": { "interface": 0 }
+      },
+      {
+        "kind": { "option": "s32" },
+        "name": null,
+        "owner": null
+      },
+      {
+        "kind": {
+          "result": { "err": "string", "ok": "s32" }
+        },
+        "name": null,
+        "owner": null
+      },
+      {
+        "kind": { "list": 0 },
+        "name": null,
+        "owner": null
+      }
+    ],
+    "worlds": [
+      {
+        "exports": {
+          "interface-0": {
+            "interface": { "id": 0 }
+          }
+        },
+        "imports": {},
+        "name": "example",
+        "package": 0
+      }
+    ]
+  },
+  "world_id": 0
+}

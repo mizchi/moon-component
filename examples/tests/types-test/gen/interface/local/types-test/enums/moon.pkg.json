@@ -1,0 +1,20 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportColorName:local:types-test/enums#color-name",
+        "wasmExportEchoColor:local:types-test/enums#echo-color"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportColorName:local:types-test/enums#color-name",
+        "wasmExportEchoColor:local:types-test/enums#echo-color"
+      ]
+    }
+  }
+}

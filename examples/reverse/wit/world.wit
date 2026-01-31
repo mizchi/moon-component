@@ -1,0 +1,30 @@
+package myapp:component;
+
+interface exports {
+  enum color {
+    red,
+    green,
+    blue,
+    yellow,
+    cyan,
+    magenta,
+  }
+
+  record point {
+    x: s32,
+    y: s32,
+  }
+
+  greet: func(p1: string) -> string;
+  add: func(p1: s32, p2: s32) -> s32;
+  is-even: func(p1: s32) -> bool;
+  find-user: func(p1: s32) -> option<string>;
+  parse-int: func(p1: string) -> result<s32, string>;
+  create-point: func(p1: s32, p2: s32) -> point;
+  get-color: func(p1: string) -> color;
+  sum-list: func(p1: list<s32>) -> s32;
+}
+
+world component {
+  export exports;
+}

@@ -1,0 +1,6 @@
+{
+  "import": [
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" },
+    { "path": "mizchi/moon_component/src/wkg", "alias": "wkg" }
+  ]
+}

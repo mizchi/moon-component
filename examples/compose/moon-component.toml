@@ -1,0 +1,12 @@
+[bundle]
+name = "example/composed-app"
+output = "dist/composed.wasm"
+entry = "apps/main/component"
+
+[dependencies]
+"example:math" = { path = "libs/math/component" }
+"example:strings" = { path = "libs/strings/component" }
+
+[build]
+target = "wasm"
+release = true

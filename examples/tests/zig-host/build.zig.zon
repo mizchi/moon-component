@@ -1,0 +1,15 @@
+.{
+    .name = .zig_host,
+    .version = "0.1.0",
+    .fingerprint = 0x74df01e7714e0da,
+    .minimum_zig_version = "0.15.0",
+    .dependencies = .{
+        // Note: wasm3-zig dependency would need to be fetched
+        // Run: zig fetch --save https://github.com/pbrooks/wasm3-zig/archive/refs/tags/v0.2.0.tar.gz
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

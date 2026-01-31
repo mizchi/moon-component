@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "hello/gen/interface/local/hello/greet", "alias": "exports" }
+  ]
+}

@@ -1,6 +1,232 @@
-# mizchi/wit_bindgen_mbt
+# mizchi/moon_component
 
-WIT (WebAssembly Interface Types) to MoonBit code generator.
+WebAssembly Component Model tooling for MoonBit.
+
+## Installation
+
+```bash
+# Build the CLI
+cargo build --release --manifest-path tools/moon-component/Cargo.toml
+
+# Add to PATH (optional)
+export PATH="$PWD/tools/moon-component/target/release:$PATH"
+```
+
+## Quick Start
+
+```bash
+# Create a new component project
+moon-component new my-component
+
+# Or initialize in existing MoonBit project
+moon-component init
+
+# Build component (generate + build + componentize)
+moon-component component wit/world.wit -o my-component.wasm --release
+```
+
+## Commands
+
+### `moon-component new <name>`
+
+Create a new MoonBit component project with example WIT file.
+
+```bash
+moon-component new hello-world
+cd hello-world
+moon-component component wit/world.wit -o hello.wasm --release
+```
+
+### `moon-component generate <wit-path>`
+
+Generate MoonBit bindings from WIT files.
+
+```bash
+moon-component generate wit/world.wit -o ./component -p my/project
+```
+
+Options:
+- `-o, --out-dir <dir>` - Output directory (default: `.`)
+- `-p, --project-name <name>` - Project name for imports
+- `--gen-dir <dir>` - Generated code directory (default: `gen`)
+- `--impl-dir <dir>` - Implementation directory (default: `impl`)
+- `--no-impl` - Don't generate impl files
+- `--wkg` - Generate wkg.toml for wa.dev deployment
+- `-w, --world <world>` - World to generate bindings for
+
+### `moon-component component <wit-path>`
+
+Full workflow: generate + build + componentize.
+
+```bash
+moon-component component wit/world.wit -o output.wasm --release
+```
+
+### `moon-component componentize <wasm-path>`
+
+Create a WebAssembly component from a built wasm module.
+
+```bash
+moon build --target wasm --release
+moon-component componentize target/wasm/release/build/main/main.wasm \
+  --wit-dir wit -o component.wasm
+```
+
+### `moon-component plug <socket> <plugs>...`
+
+Plug component exports into another component's imports (using `wac plug`).
+
+```bash
+# Plug library.wasm exports into app.wasm imports
+moon-component plug app.wasm library.wasm -o composed.wasm
+
+# Multiple plugs
+moon-component plug app.wasm lib1.wasm lib2.wasm -o composed.wasm
+```
+
+### `moon-component compose <wac-file>`
+
+Compose multiple components using a WAC file (using `wac compose`).
+
+```bash
+moon-component compose composition.wac -o composed.wasm
+```
+
+Example WAC file (`composition.wac`):
+```wac
+package example:composed;
+
+let app = new app:component { ... };
+let lib = new lib:component { ... };
+
+// Wire lib exports to app imports
+let composed = new app { api: lib.api };
+
+export composed...;
+```
+
+### `moon-component bundle`
+
+Bundle components from a workspace config file. Automatically builds all components and composes them using WAC.
+
+```bash
+# Bundle using moon-component.toml
+moon-component bundle
+
+# Custom config file
+moon-component bundle -c my-config.toml
+
+# Only build components, don't compose
+moon-component bundle --build-only
+
+# Preview generated WAC without executing
+moon-component bundle --dry-run
+```
+
+## Bundle Configuration
+
+Create `moon-component.toml` for declarative composition:
+
+```toml
+[bundle]
+name = "my/app"
+output = "dist/app.wasm"
+entry = "apps/main/component"
+
+# External imports (left unresolved for runtime)
+externals = ["wasi:io/*", "wasi:cli/*"]
+
+# Optional: use explicit WAC file instead of auto-generation
+# wac = "custom.wac"
+
+[dependencies]
+"mizchi:flatbuffers" = { path = "libs/flatbuffers/component" }
+"mizchi:json" = { path = "libs/json/component" }
+
+[build]
+target = "wasm"
+release = true
+```
+
+### How It Works
+
+1. Reads `moon-component.toml`
+2. Builds entry and all dependency components (parallel-ready)
+3. Auto-generates `.wac` file (or uses explicit one)
+4. Runs `wac compose` to create final component
+
+### Generated WAC Example
+
+```wac
+package my:app:composed;
+
+let mizchi_flatbuffers = new mizchi:flatbuffers {};
+let mizchi_json = new mizchi:json {};
+
+let entry = new entry:component {
+  "mizchi:flatbuffers": mizchi_flatbuffers."mizchi:flatbuffers",
+  "mizchi:json": mizchi_json."mizchi:json",
+};
+
+export entry...;
+```
+
+## Monorepo Component Composition
+
+In a monorepo with multiple MoonBit libraries:
+
+```
+monorepo/
+├── moon-component.toml           # Bundle config
+├── libs/
+│   ├── flatbuffers/component/    # flatbuffers component
+│   └── json/component/           # json component
+└── apps/
+    └── main/component/           # app that imports libs
+```
+
+```bash
+# One command to build and compose everything
+moon-component bundle
+```
+
+### Manual Composition (Alternative)
+
+For fine-grained control, you can use `plug` or `compose` directly:
+
+```bash
+# Build each component manually
+moon-component component libs/flatbuffers/wit/world.wit -o flatbuffers.wasm
+moon-component component apps/main/wit/world.wit -o main.wasm
+
+# Plug libraries into app
+moon-component plug main.wasm flatbuffers.wasm -o app.wasm
+
+# Or use WAC file for complex compositions
+moon-component compose composition.wac -o app.wasm
+```
+
+## Generated Directory Structure
+
+```
+component/
+├── moon.mod.json
+├── wit/
+│   └── world.wit          # WIT definition
+├── gen/                   # Generated code (regenerated)
+│   └── cabi/
+│       ├── moon.pkg.json
+│       └── cabi.mbt       # Canonical ABI helpers
+└── impl/                  # Implementation (preserved)
+    ├── moon.pkg.json      # is-main: true
+    ├── bindings.mbt       # Generated trait & FFI (regenerated)
+    └── impl.mbt           # User implementation (stub, preserved)
+```
+
+- `gen/` - Regenerated on each `generate` call
+- `impl/bindings.mbt` - Regenerated (trait definition, FFI glue)
+- `impl/impl.mbt` - Preserved (user implementation stub)
+- `impl/moon.pkg.json` - Preserved (user can add imports)
 
 ## Supported WIT Types
 
@@ -102,19 +328,6 @@ The [WebAssembly Component Model](https://github.com/WebAssembly/component-model
 - Allows future migration to native wasm-gc resource support when standardized
 
 See [Pre-Proposal: Wasm GC Support in Canonical ABI](https://github.com/WebAssembly/component-model/issues/525) for ongoing standardization work.
-
-## Usage
-
-```bash
-# Generate JSON from WIT
-wasm-tools component wit world.wit --json > resolve.json
-
-# Add world_id wrapper
-jq '{resolve: ., world_id: 0}' resolve.json > input.json
-
-# Generate MoonBit code
-wit-bindgen-moonbit input.json --project-name my-project --out-dir ./
-```
 
 ## Examples
 

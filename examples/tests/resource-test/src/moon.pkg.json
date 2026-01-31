@@ -1,0 +1,36 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "resource-test/gen/cabi", "alias": "cabi" },
+    { "path": "resource-test/gen/interface/local/resource-test/blob-store", "alias": "exports" },
+    { "path": "resource-test/stub/local/resource-test/blob-store", "alias": "stub0" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportBlobNew:local:resource-test/blob-store#[constructor]blob",
+        "wasmExportBlobSize:local:resource-test/blob-store#[method]blob.size",
+        "wasmExportBlobRead:local:resource-test/blob-store#[method]blob.read",
+        "wasmExportBlobWrite:local:resource-test/blob-store#[method]blob.write",
+        "wasmExportCreateBlob:local:resource-test/blob-store#create-blob",
+        "wasmExportGetBlobSize:local:resource-test/blob-store#get-blob-size",
+        "wasmExportConsumeBlob:local:resource-test/blob-store#consume-blob"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportBlobNew:local:resource-test/blob-store#[constructor]blob",
+        "wasmExportBlobSize:local:resource-test/blob-store#[method]blob.size",
+        "wasmExportBlobRead:local:resource-test/blob-store#[method]blob.read",
+        "wasmExportBlobWrite:local:resource-test/blob-store#[method]blob.write",
+        "wasmExportCreateBlob:local:resource-test/blob-store#create-blob",
+        "wasmExportGetBlobSize:local:resource-test/blob-store#get-blob-size",
+        "wasmExportConsumeBlob:local:resource-test/blob-store#consume-blob"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

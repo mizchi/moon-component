@@ -1,0 +1,11 @@
+package example:math;
+
+interface operations {
+  add: func(a: s32, b: s32) -> s32;
+  multiply: func(a: s32, b: s32) -> s32;
+  factorial: func(n: u32) -> u64;
+}
+
+world math {
+  export operations;
+}

@@ -1,0 +1,18 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "hello/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportGreet:local:hello/greet#greet"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportGreet:local:hello/greet#greet"
+      ]
+    }
+  }
+}

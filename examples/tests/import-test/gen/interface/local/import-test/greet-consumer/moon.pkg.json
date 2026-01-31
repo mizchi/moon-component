@@ -1,0 +1,18 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "import-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportRun:local:import-test/greet-consumer#run"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportRun:local:import-test/greet-consumer#run"
+      ]
+    }
+  }
+}

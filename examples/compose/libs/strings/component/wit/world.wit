@@ -1,0 +1,11 @@
+package example:strings;
+
+interface utils {
+  reverse: func(s: string) -> string;
+  uppercase: func(s: string) -> string;
+  repeat: func(s: string, n: u32) -> string;
+}
+
+world strings {
+  export utils;
+}

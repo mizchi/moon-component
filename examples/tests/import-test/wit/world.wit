@@ -1,0 +1,14 @@
+package local:import-test;
+
+interface greet-provider {
+  get-greeting: func(name: string) -> string;
+}
+
+interface greet-consumer {
+  run: func() -> string;
+}
+
+world import-test {
+  import greet-provider;
+  export greet-consumer;
+}

@@ -1,0 +1,19 @@
+.DS_Store
+_build/
+target/
+target
+.mooncakes/
+.moonagent/
+
+# Test host build artifacts
+examples/tests/jco-host/node_modules/
+examples/tests/swift-host/.build/
+examples/tests/zig-guest/.zig-cache/
+examples/tests/scala-host/target/
+examples/tests/scala-host/project/target/
+
+# Generated components
+*.component.wasm
+
+# Bundle output
+dist/

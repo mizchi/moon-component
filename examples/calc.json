@@ -1,0 +1,55 @@
+{
+  "resolve": {
+    "interfaces": [
+      {
+        "functions": {
+          "add": {
+            "kind": "freestanding",
+            "name": "add",
+            "params": [
+              {
+                "name": "a",
+                "type": "u32"
+              },
+              {
+                "name": "b",
+                "type": "u32"
+              }
+            ],
+            "result": "u32"
+          }
+        },
+        "name": "calc",
+        "package": 0,
+        "types": {}
+      }
+    ],
+    "packages": [
+      {
+        "interfaces": {
+          "calc": 0
+        },
+        "name": "my:calc",
+        "worlds": {
+          "example": 0
+        }
+      }
+    ],
+    "types": [],
+    "worlds": [
+      {
+        "exports": {
+          "interface-0": {
+            "interface": {
+              "id": 0
+            }
+          }
+        },
+        "imports": {},
+        "name": "example",
+        "package": 0
+      }
+    ]
+  },
+  "world_id": 0
+}

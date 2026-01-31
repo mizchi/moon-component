@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moon_component/src"
+
+import {
+  "mizchi/moon_component/src/resolve",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct ExportInfo {
+  func_name : String
+  wit_name : String
+  ffi_params : Array[String]
+  ffi_return_type : String
+  returns_indirect : Bool
+}
+pub impl Show for ExportInfo
+
+pub struct GeneratedFile {
+  path : String
+  content : String
+  is_stub : Bool
+}
+pub impl Show for GeneratedFile
+
+pub struct Generator {
+  opts : GeneratorOpts
+  resolve : @resolve.Resolve
+  world_id : Int
+  output : Array[GeneratedFile]
+  exports_info : Array[ExportInfo]
+}
+pub fn Generator::generate(Self) -> Array[GeneratedFile]
+pub fn Generator::new(@resolve.Resolve, Int, GeneratorOpts) -> Self
+
+pub(all) struct GeneratorOpts {
+  trait_exports : Bool
+  out_dir : String?
+  project_name : String?
+  gen_dir : String
+  impl_dir : String
+  generate_impl : Bool
+  generate_wkg : Bool
+  wkg_version : String
+  pkg_format : PkgFormat
+  use_js_string_builtins : Bool
+}
+pub fn GeneratorOpts::default() -> Self
+pub impl Show for GeneratorOpts
+
+pub(all) enum PkgFormat {
+  Json
+  Dsl
+}
+pub impl Eq for PkgFormat
+pub impl Show for PkgFormat
+
+pub struct WkgDependency {
+  ns : String
+  name : String
+  version : String?
+}
+pub impl Eq for WkgDependency
+pub impl Show for WkgDependency
+
+// Type aliases
+
+// Traits
+

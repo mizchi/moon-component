@@ -1,14 +1,20 @@
-# wit-bindgen-moonbit
+# moon-component
 # Usage: just <command> [args]
 
-wit_bindgen := "tools/wit-bindgen-mbt/target/release/wit-bindgen-mbt"
+moon_component := "tools/moon-component/target/release/moon-component"
 
 default:
     @just --list
 
-# Build the wit-bindgen-mbt CLI
+# Build the moon-component CLI
 build-cli:
-    cargo build --release --manifest-path tools/wit-bindgen-mbt/Cargo.toml
+    cargo build --release --manifest-path tools/moon-component/Cargo.toml
+
+# Install moon-component to ~/.local/bin
+install: build-cli
+    mkdir -p ~/.local/bin
+    cp {{moon_component}} ~/.local/bin/moon-component
+    @echo "Installed moon-component to ~/.local/bin/moon-component"
 
 # Run tests
 test *args:
@@ -17,35 +23,35 @@ test *args:
 # Format code
 fmt:
     moon fmt
-    cargo fmt --manifest-path tools/wit-bindgen-mbt/Cargo.toml
+    cargo fmt --manifest-path tools/moon-component/Cargo.toml
 
 # Check code
 check:
     moon check
-    cargo check --manifest-path tools/wit-bindgen-mbt/Cargo.toml
+    cargo check --manifest-path tools/moon-component/Cargo.toml
 
 # Clean build artifacts
 clean:
     moon clean
-    cargo clean --manifest-path tools/wit-bindgen-mbt/Cargo.toml
+    cargo clean --manifest-path tools/moon-component/Cargo.toml
 
 # Build hello example
 example-hello:
-    {{wit_bindgen}} generate examples/hello/wit/world.wit -p hello -o examples/hello
+    {{moon_component}} generate examples/hello/wit/world.wit -p hello -o examples/hello
     moon build --target wasm --release --directory examples/hello
-    {{wit_bindgen}} componentize examples/hello/_build/wasm/release/build/src/src.wasm \
+    {{moon_component}} componentize examples/hello/_build/wasm/release/build/src/src.wasm \
         --wit-dir examples/hello/wit \
         -o examples/hello/hello.component.wasm
     wasm-tools component wit examples/hello/hello.component.wasm
 
 # Generate WIT from MoonBit (reverse example)
 example-reverse:
-    {{wit_bindgen}} wit-from-moonbit examples/reverse -o examples/reverse/wit/world.wit -n myapp
-    {{wit_bindgen}} resolve-json examples/reverse/wit/world.wit | head -50
+    {{moon_component}} wit-from-moonbit examples/reverse -o examples/reverse/wit/world.wit -n myapp
+    {{moon_component}} resolve-json examples/reverse/wit/world.wit | head -50
 
 # Check WIT compatibility (reverse example)
 example-reverse-check:
-    {{wit_bindgen}} wit-from-moonbit examples/reverse --check
+    {{moon_component}} wit-from-moonbit examples/reverse --check
 
 # Build types-test example
 example-types-test:

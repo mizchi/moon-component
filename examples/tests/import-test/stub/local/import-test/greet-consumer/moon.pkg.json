@@ -1,0 +1,6 @@
+{
+  "import": [
+    { "path": "import-test/gen/interface/local/import-test/greet-consumer", "alias": "exports" },
+    { "path": "import-test/gen/interface/local/import-test/greet-provider", "alias": "greet_provider" }
+  ]
+}

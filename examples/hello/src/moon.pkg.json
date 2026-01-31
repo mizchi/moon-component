@@ -1,0 +1,24 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "hello/gen/cabi", "alias": "cabi" },
+    { "path": "hello/gen/interface/local/hello/greet", "alias": "exports" },
+    { "path": "hello/stub/local/hello/greet", "alias": "stub0" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportGreet:local:hello/greet#greet"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportGreet:local:hello/greet#greet"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+package local:resource-test;
+
+/// Simple resource for testing - pure data, copyable
+interface blob-store {
+  /// A blob resource that holds binary data
+  resource blob {
+    /// Create a new blob with initial data
+    constructor(data: list<u8>);
+
+    /// Get the size of the blob
+    size: func() -> u32;
+
+    /// Read data from the blob
+    read: func(offset: u32, len: u32) -> list<u8>;
+
+    /// Write data to the blob (for owned blobs only)
+    write: func(offset: u32, data: list<u8>);
+  }
+
+  /// Create a blob and return ownership
+  create-blob: func(data: list<u8>) -> own<blob>;
+
+  /// Process a borrowed blob (read-only)
+  get-blob-size: func(b: borrow<blob>) -> u32;
+
+  /// Transfer ownership and process
+  consume-blob: func(b: own<blob>) -> list<u8>;
+}
+
+world resource-world {
+  export blob-store;
+}

@@ -1,0 +1,28 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportEchoBool:local:types-test/primitives#echo-bool",
+        "wasmExportEchoF32:local:types-test/primitives#echo-f32",
+        "wasmExportEchoF64:local:types-test/primitives#echo-f64",
+        "wasmExportEchoS32:local:types-test/primitives#echo-s32",
+        "wasmExportEchoS64:local:types-test/primitives#echo-s64",
+        "wasmExportEchoString:local:types-test/primitives#echo-string"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportEchoBool:local:types-test/primitives#echo-bool",
+        "wasmExportEchoF32:local:types-test/primitives#echo-f32",
+        "wasmExportEchoF64:local:types-test/primitives#echo-f64",
+        "wasmExportEchoS32:local:types-test/primitives#echo-s32",
+        "wasmExportEchoS64:local:types-test/primitives#echo-s64",
+        "wasmExportEchoString:local:types-test/primitives#echo-string"
+      ]
+    }
+  }
+}

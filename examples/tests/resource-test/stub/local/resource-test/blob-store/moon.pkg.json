@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "resource-test/gen/interface/local/resource-test/blob-store", "alias": "exports" }
+  ]
+}

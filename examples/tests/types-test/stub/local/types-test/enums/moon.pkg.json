@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "types-test/gen/interface/local/types-test/enums", "alias": "exports" }
+  ]
+}

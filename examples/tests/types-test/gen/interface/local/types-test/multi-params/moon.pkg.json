@@ -1,0 +1,26 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportAdd2:local:types-test/multi-params#add2",
+        "wasmExportAdd3:local:types-test/multi-params#add3",
+        "wasmExportAdd4:local:types-test/multi-params#add4",
+        "wasmExportConcat3:local:types-test/multi-params#concat3",
+        "wasmExportMixedParams:local:types-test/multi-params#mixed-params"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportAdd2:local:types-test/multi-params#add2",
+        "wasmExportAdd3:local:types-test/multi-params#add3",
+        "wasmExportAdd4:local:types-test/multi-params#add4",
+        "wasmExportConcat3:local:types-test/multi-params#concat3",
+        "wasmExportMixedParams:local:types-test/multi-params#mixed-params"
+      ]
+    }
+  }
+}

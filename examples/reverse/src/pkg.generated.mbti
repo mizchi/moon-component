@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "reverse_example/src"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Color {
+  Red
+  Green
+  Blue
+  Yellow
+  Cyan
+  Magenta
+}
+
+pub(all) struct Point {
+  x : Int
+  y : Int
+}
+
+// Type aliases
+
+// Traits
+pub(open) trait Exports {
+  greet(Self, String) -> String
+  add(Self, Int, Int) -> Int
+  is_even(Self, Int) -> Bool
+  find_user(Self, Int) -> String?
+  parse_int(Self, String) -> Result[Int, String]
+  create_point(Self, Int, Int) -> Point
+  get_color(Self, String) -> Color
+  sum_list(Self, Array[Int]) -> Int
+}
+

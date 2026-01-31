@@ -1,0 +1,22 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportEchoPermissions:local:types-test/flags-test#echo-permissions",
+        "wasmExportHasRead:local:types-test/flags-test#has-read",
+        "wasmExportHasWrite:local:types-test/flags-test#has-write"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportEchoPermissions:local:types-test/flags-test#echo-permissions",
+        "wasmExportHasRead:local:types-test/flags-test#has-read",
+        "wasmExportHasWrite:local:types-test/flags-test#has-write"
+      ]
+    }
+  }
+}

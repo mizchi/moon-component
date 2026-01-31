@@ -1,0 +1,212 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moon_component/src/resolve"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Function {
+  name : String
+  kind : FunctionKind
+  params : Array[(String, Type)]
+  result : Type?
+}
+pub impl Eq for Function
+pub impl Show for Function
+pub impl ToJson for Function
+pub impl @json.FromJson for Function
+
+pub(all) enum FunctionKind {
+  Freestanding
+  Constructor(Int)
+  Method(Int)
+  Static(Int)
+}
+pub impl Eq for FunctionKind
+pub impl Show for FunctionKind
+pub impl ToJson for FunctionKind
+pub impl @json.FromJson for FunctionKind
+
+pub(all) enum FunctionResult {
+  Named(Array[(String, Type)])
+  Anon(Type)
+}
+pub impl Eq for FunctionResult
+pub impl Show for FunctionResult
+pub impl ToJson for FunctionResult
+pub impl @json.FromJson for FunctionResult
+
+pub(all) enum HandleKind {
+  Own(Int)
+  Borrow(Int)
+}
+pub impl Eq for HandleKind
+pub impl Show for HandleKind
+pub impl ToJson for HandleKind
+pub impl @json.FromJson for HandleKind
+
+pub(all) struct Interface {
+  name : String?
+  functions : Map[String, Function]
+  types : Map[String, Int]
+  pkg : Int?
+}
+pub impl Eq for Interface
+pub impl Show for Interface
+pub impl ToJson for Interface
+pub impl @json.FromJson for Interface
+
+pub(all) struct InterfaceRef {
+  id : Int
+}
+pub impl Eq for InterfaceRef
+pub impl Show for InterfaceRef
+pub impl ToJson for InterfaceRef
+pub impl @json.FromJson for InterfaceRef
+
+pub(all) struct Package {
+  name : PackageName
+  interfaces : Map[String, Int]
+  worlds : Map[String, Int]
+}
+pub impl Eq for Package
+pub impl Show for Package
+pub impl ToJson for Package
+pub impl @json.FromJson for Package
+
+pub(all) struct PackageName {
+  ns : String
+  name : String
+  version : String?
+}
+pub impl Eq for PackageName
+pub impl Show for PackageName
+pub impl ToJson for PackageName
+pub impl @json.FromJson for PackageName
+
+pub(all) struct RecordField {
+  name : String
+  field_type : Type
+}
+pub impl Eq for RecordField
+pub impl Show for RecordField
+pub impl ToJson for RecordField
+pub impl @json.FromJson for RecordField
+
+pub(all) struct Resolve {
+  worlds : Array[World]
+  interfaces : Array[Interface]
+  types : Array[TypeDef]
+  packages : Array[Package]
+}
+pub impl Eq for Resolve
+pub impl Show for Resolve
+pub impl ToJson for Resolve
+pub impl @json.FromJson for Resolve
+
+pub(all) struct ResolveInput {
+  resolve : Resolve
+  world_id : Int
+}
+pub impl Eq for ResolveInput
+pub impl Show for ResolveInput
+pub impl ToJson for ResolveInput
+pub impl @json.FromJson for ResolveInput
+
+pub(all) enum Type {
+  Bool
+  U8
+  U16
+  U32
+  U64
+  S8
+  S16
+  S32
+  S64
+  F32
+  F64
+  Char
+  String_
+  Id(Int)
+}
+pub impl Eq for Type
+pub impl Show for Type
+pub impl ToJson for Type
+pub impl @json.FromJson for Type
+
+pub(all) struct TypeDef {
+  name : String?
+  kind : TypeKind
+  owner : TypeOwner
+}
+pub impl Eq for TypeDef
+pub impl Show for TypeDef
+pub impl ToJson for TypeDef
+pub impl @json.FromJson for TypeDef
+
+pub(all) enum TypeKind {
+  Record(Array[RecordField])
+  Variant(Array[VariantCase])
+  List(Type)
+  Option(Type)
+  Result(ok~ : Type?, err~ : Type?)
+  Tuple(Array[Type])
+  Flags(Array[String])
+  Enum(Array[String])
+  Alias(Type)
+  Resource
+  Handle(HandleKind)
+}
+pub impl Eq for TypeKind
+pub impl Show for TypeKind
+pub impl ToJson for TypeKind
+pub impl @json.FromJson for TypeKind
+
+pub(all) enum TypeOwner {
+  Interface(Int)
+  World(Int)
+  None
+}
+pub impl Eq for TypeOwner
+pub impl Show for TypeOwner
+pub impl ToJson for TypeOwner
+pub impl @json.FromJson for TypeOwner
+
+pub(all) struct VariantCase {
+  name : String
+  case_type : Type?
+}
+pub impl Eq for VariantCase
+pub impl Show for VariantCase
+pub impl ToJson for VariantCase
+pub impl @json.FromJson for VariantCase
+
+pub(all) struct World {
+  name : String
+  imports : Map[String, WorldItem]
+  exports : Map[String, WorldItem]
+  pkg : Int?
+}
+pub impl Eq for World
+pub impl Show for World
+pub impl ToJson for World
+pub impl @json.FromJson for World
+
+pub(all) enum WorldItem {
+  Interface(InterfaceRef)
+  Function(Function)
+}
+pub impl Eq for WorldItem
+pub impl Show for WorldItem
+pub impl ToJson for WorldItem
+pub impl @json.FromJson for WorldItem
+
+// Type aliases
+
+// Traits
+

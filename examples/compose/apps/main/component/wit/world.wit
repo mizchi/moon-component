@@ -1,0 +1,25 @@
+package example:app;
+
+// Combined export interface
+interface api {
+  // Math operations (delegating to math lib)
+  calc-add: func(a: s32, b: s32) -> s32;
+  calc-multiply: func(a: s32, b: s32) -> s32;
+  calc-factorial: func(n: u32) -> u64;
+
+  // String operations (delegating to strings lib)
+  str-reverse: func(s: string) -> string;
+  str-uppercase: func(s: string) -> string;
+  str-repeat: func(s: string, n: u32) -> string;
+
+  // Combined operation
+  describe-factorial: func(n: u32) -> string;
+}
+
+world app {
+  // Import from library components (matching their export names)
+  import example:math/operations;
+  import example:strings/utils;
+
+  export api;
+}

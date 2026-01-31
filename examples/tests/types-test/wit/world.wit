@@ -1,0 +1,84 @@
+package local:types-test;
+
+/// Test interface for primitive types
+interface primitives {
+  // Signed integers
+  echo-s32: func(val: s32) -> s32;
+  echo-s64: func(val: s64) -> s64;
+
+  // Floating point
+  echo-f32: func(val: f32) -> f32;
+  echo-f64: func(val: f64) -> f64;
+
+  // Other primitives
+  echo-bool: func(val: bool) -> bool;
+  echo-string: func(val: string) -> string;
+}
+
+/// Test interface for enum types
+interface enums {
+  // Simple enum
+  enum color {
+    red,
+    green,
+    blue,
+  }
+
+  // Enum echo
+  echo-color: func(c: color) -> color;
+
+  // Enum to string
+  color-name: func(c: color) -> string;
+}
+
+/// Test interface for flags types
+interface flags-test {
+  // Flags type
+  flags permissions {
+    read,
+    write,
+    execute,
+  }
+
+  // Flags echo
+  echo-permissions: func(p: permissions) -> permissions;
+
+  // Check permissions
+  has-read: func(p: permissions) -> bool;
+  has-write: func(p: permissions) -> bool;
+}
+
+/// Test interface for container types
+interface containers {
+  // List operations
+  sum-list: func(vals: list<s32>) -> s32;
+  echo-list-s64: func(vals: list<s64>) -> list<s64>;
+  count-list: func(vals: list<string>) -> s32;
+
+  // Result operations
+  divide: func(a: s32, b: s32) -> result<s32, string>;
+}
+
+/// Test interface for multiple parameters
+interface multi-params {
+  add2: func(a: s32, b: s32) -> s32;
+  add3: func(a: s32, b: s32, c: s32) -> s32;
+  add4: func(a: s32, b: s32, c: s32, d: s32) -> s32;
+  concat3: func(a: string, b: string, c: string) -> string;
+  mixed-params: func(n: s32, s: string, b: bool) -> string;
+}
+
+/// Test interface for no return (side effects)
+interface side-effects {
+  no-return: func(msg: string);
+  no-params-no-return: func();
+}
+
+world types-test {
+  export primitives;
+  export enums;
+  export flags-test;
+  export containers;
+  export multi-params;
+  export side-effects;
+}

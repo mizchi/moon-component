@@ -1,0 +1,24 @@
+{
+  "warn-list": "-44",
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "wasmExportCountList:local:types-test/containers#count-list",
+        "wasmExportDivide:local:types-test/containers#divide",
+        "wasmExportEchoListS64:local:types-test/containers#echo-list-s64",
+        "wasmExportSumList:local:types-test/containers#sum-list"
+      ]
+    },
+    "wasm-gc": {
+      "exports": [
+        "wasmExportCountList:local:types-test/containers#count-list",
+        "wasmExportDivide:local:types-test/containers#divide",
+        "wasmExportEchoListS64:local:types-test/containers#echo-list-s64",
+        "wasmExportSumList:local:types-test/containers#sum-list"
+      ]
+    }
+  }
+}

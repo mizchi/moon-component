@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "example/calc/gen/interface/my/calc/calc", "alias": "calc" }
+  ]
+}

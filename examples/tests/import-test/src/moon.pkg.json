@@ -1,0 +1,24 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "import-test/gen/cabi", "alias": "cabi" },
+    { "path": "import-test/gen/interface/local/import-test/greet-consumer", "alias": "exports" },
+    { "path": "import-test/stub/local/import-test/greet-consumer", "alias": "stub0" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:local:import-test/greet-consumer#run"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:local:import-test/greet-consumer#run"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

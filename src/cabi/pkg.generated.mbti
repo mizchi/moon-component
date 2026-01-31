@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moon_component/src/cabi"
+
+// Values
+pub fn cabi_get_memory() -> Array[Byte]
+
+pub fn cabi_get_offset() -> Int
+
+pub fn cabi_lift_string(Int, Int) -> String
+
+pub fn cabi_lower_string(String) -> (Int, Int)
+
+pub fn cabi_read_f32(Int) -> Float
+
+pub fn cabi_read_f64(Int) -> Double
+
+pub fn cabi_read_i32(Int) -> Int
+
+pub fn cabi_read_i64(Int) -> Int64
+
+pub fn cabi_realloc(Int, Int, Int, Int) -> Int
+
+pub fn cabi_reset() -> Unit
+
+pub fn cabi_write_f32(Int, Float) -> Unit
+
+pub fn cabi_write_f64(Int, Double) -> Unit
+
+pub fn cabi_write_i32(Int, Int) -> Unit
+
+pub fn cabi_write_i64(Int, Int64) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

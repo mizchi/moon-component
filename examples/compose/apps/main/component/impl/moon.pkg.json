@@ -1,0 +1,36 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "example/app-component/gen/cabi", "alias": "cabi" },
+    { "path": "example/app-component/gen/interface/example/math/operations", "alias": "math" },
+    { "path": "example/app-component/gen/interface/example/strings/utils", "alias": "strings" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportCalcAdd:example:app/api#calc-add",
+        "wasmExportCalcFactorial:example:app/api#calc-factorial",
+        "wasmExportCalcMultiply:example:app/api#calc-multiply",
+        "wasmExportDescribeFactorial:example:app/api#describe-factorial",
+        "wasmExportStrRepeat:example:app/api#str-repeat",
+        "wasmExportStrReverse:example:app/api#str-reverse",
+        "wasmExportStrUppercase:example:app/api#str-uppercase"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportCalcAdd:example:app/api#calc-add",
+        "wasmExportCalcFactorial:example:app/api#calc-factorial",
+        "wasmExportCalcMultiply:example:app/api#calc-multiply",
+        "wasmExportDescribeFactorial:example:app/api#describe-factorial",
+        "wasmExportStrRepeat:example:app/api#str-repeat",
+        "wasmExportStrReverse:example:app/api#str-reverse",
+        "wasmExportStrUppercase:example:app/api#str-uppercase"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "types-test/gen/cabi", "alias": "cabi" },
+    { "path": "types-test/gen/interface/local/types-test/primitives", "alias": "exports" },
+    { "path": "types-test/gen/interface/local/types-test/enums", "alias": "exports1" },
+    { "path": "types-test/gen/interface/local/types-test/flags-test", "alias": "exports2" },
+    { "path": "types-test/gen/interface/local/types-test/containers", "alias": "exports3" },
+    { "path": "types-test/gen/interface/local/types-test/multi-params", "alias": "exports4" },
+    { "path": "types-test/gen/interface/local/types-test/side-effects", "alias": "exports5" },
+    { "path": "types-test/stub/local/types-test/primitives", "alias": "stub0" },
+    { "path": "types-test/stub/local/types-test/enums", "alias": "stub1" },
+    { "path": "types-test/stub/local/types-test/flags-test", "alias": "stub2" },
+    { "path": "types-test/stub/local/types-test/containers", "alias": "stub3" },
+    { "path": "types-test/stub/local/types-test/multi-params", "alias": "stub4" },
+    { "path": "types-test/stub/local/types-test/side-effects", "alias": "stub5" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportEchoBool:local:types-test/primitives#echo-bool",
+        "wasmExportEchoF32:local:types-test/primitives#echo-f32",
+        "wasmExportEchoF64:local:types-test/primitives#echo-f64",
+        "wasmExportEchoS32:local:types-test/primitives#echo-s32",
+        "wasmExportEchoS64:local:types-test/primitives#echo-s64",
+        "wasmExportEchoString:local:types-test/primitives#echo-string",
+        "wasmExportColorName:local:types-test/enums#color-name",
+        "wasmExportEchoColor:local:types-test/enums#echo-color",
+        "wasmExportEchoPermissions:local:types-test/flags-test#echo-permissions",
+        "wasmExportHasRead:local:types-test/flags-test#has-read",
+        "wasmExportHasWrite:local:types-test/flags-test#has-write",
+        "wasmExportCountList:local:types-test/containers#count-list",
+        "wasmExportDivide:local:types-test/containers#divide",
+        "wasmExportEchoListS64:local:types-test/containers#echo-list-s64",
+        "wasmExportSumList:local:types-test/containers#sum-list",
+        "wasmExportAdd2:local:types-test/multi-params#add2",
+        "wasmExportAdd3:local:types-test/multi-params#add3",
+        "wasmExportAdd4:local:types-test/multi-params#add4",
+        "wasmExportConcat3:local:types-test/multi-params#concat3",
+        "wasmExportMixedParams:local:types-test/multi-params#mixed-params",
+        "wasmExportNoParamsNoReturn:local:types-test/side-effects#no-params-no-return",
+        "wasmExportNoReturn:local:types-test/side-effects#no-return"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportEchoBool:local:types-test/primitives#echo-bool",
+        "wasmExportEchoF32:local:types-test/primitives#echo-f32",
+        "wasmExportEchoF64:local:types-test/primitives#echo-f64",
+        "wasmExportEchoS32:local:types-test/primitives#echo-s32",
+        "wasmExportEchoS64:local:types-test/primitives#echo-s64",
+        "wasmExportEchoString:local:types-test/primitives#echo-string",
+        "wasmExportColorName:local:types-test/enums#color-name",
+        "wasmExportEchoColor:local:types-test/enums#echo-color",
+        "wasmExportEchoPermissions:local:types-test/flags-test#echo-permissions",
+        "wasmExportHasRead:local:types-test/flags-test#has-read",
+        "wasmExportHasWrite:local:types-test/flags-test#has-write",
+        "wasmExportCountList:local:types-test/containers#count-list",
+        "wasmExportDivide:local:types-test/containers#divide",
+        "wasmExportEchoListS64:local:types-test/containers#echo-list-s64",
+        "wasmExportSumList:local:types-test/containers#sum-list",
+        "wasmExportAdd2:local:types-test/multi-params#add2",
+        "wasmExportAdd3:local:types-test/multi-params#add3",
+        "wasmExportAdd4:local:types-test/multi-params#add4",
+        "wasmExportConcat3:local:types-test/multi-params#concat3",
+        "wasmExportMixedParams:local:types-test/multi-params#mixed-params",
+        "wasmExportNoParamsNoReturn:local:types-test/side-effects#no-params-no-return",
+        "wasmExportNoReturn:local:types-test/side-effects#no-return"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

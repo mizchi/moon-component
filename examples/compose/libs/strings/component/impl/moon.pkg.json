@@ -1,0 +1,26 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "example/strings-component/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRepeat:example:strings/utils#repeat",
+        "wasmExportReverse:example:strings/utils#reverse",
+        "wasmExportUppercase:example:strings/utils#uppercase"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRepeat:example:strings/utils#repeat",
+        "wasmExportReverse:example:strings/utils#reverse",
+        "wasmExportUppercase:example:strings/utils#uppercase"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}
