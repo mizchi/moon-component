@@ -256,6 +256,8 @@ component/
 
 Resource types are supported with the following constraints:
 
+For wasm-gc specifics, see `docs/wasm-gc-component-resources.md`.
+
 ### Constraints
 
 1. **Handle-based only**: Resources are represented as `i32` handles (indices into a handle table)
