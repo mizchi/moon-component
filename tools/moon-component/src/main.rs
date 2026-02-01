@@ -866,7 +866,7 @@ fn cmd_component(
         Path::new("."),
         project_name,
         "gen",
-        "stub",
+        "impl",
         true,
         false,
         "0.1.0",
@@ -1068,7 +1068,7 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
         comp_dir,
         Some(&comp_name),
         "gen",
-        "stub",
+        "impl",
         true,  // generate_impl
         true,  // wkg
         "0.1.0",
@@ -1202,19 +1202,42 @@ fn find_wasm_file(target: &str, release: bool) -> Result<PathBuf> {
         );
     }
 
-    // Find .wasm file
-    for entry in walkdir(target_dir)? {
+    // Prefer conventional package outputs
+    for name in ["impl", "src"] {
+        let preferred = target_dir.join(name).join(format!("{name}.wasm"));
+        if preferred.exists() {
+            return Ok(preferred);
+        }
+    }
+
+    // Find .wasm file candidates
+    let mut candidates = Vec::new();
+    for entry in walkdir(target_dir.clone())? {
         let path = entry;
         if path.extension().map(|e| e == "wasm").unwrap_or(false) {
             // Skip component files
             let name = path.file_name().unwrap().to_string_lossy();
             if !name.contains("component") {
-                return Ok(path);
+                candidates.push(path);
             }
         }
     }
 
-    bail!("no .wasm file found in build output")
+    match candidates.len() {
+        0 => bail!("no .wasm file found in build output"),
+        1 => Ok(candidates.remove(0)),
+        _ => {
+            let list = candidates
+                .iter()
+                .map(|p| format!("  - {}", p.display()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            bail!(
+                "multiple .wasm files found. Use 'moon-component componentize <wasm> --wit-dir <wit>'\n{}",
+                list
+            );
+        }
+    }
 }
 
 fn walkdir(dir: PathBuf) -> Result<Vec<PathBuf>> {
