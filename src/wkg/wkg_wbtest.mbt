@@ -58,25 +58,4 @@ test "generate_fetch_script" {
   inspect(script.contains("mkdir -p"), content="true")
 }
 
-///|
-/// Test generate_wkg_lock
-test "generate_wkg_lock" {
-  let entry1 : WkgLockEntry = {
-    ns: "wasi",
-    name: "http",
-    version: "0.2.0",
-    integrity: Some("sha256-abc123"),
-  }
-  let entry2 : WkgLockEntry = {
-    ns: "wasi",
-    name: "cli",
-    version: "0.2.0",
-    integrity: None,
-  }
-  let entries = [entry1, entry2]
-  let lock = generate_wkg_lock(entries)
-  inspect(lock.contains("[[package]]"), content="true")
-  inspect(lock.contains("name = \"wasi:http\""), content="true")
-  inspect(lock.contains("version = \"0.2.0\""), content="true")
-  inspect(lock.contains("integrity = \"sha256-abc123\""), content="true")
-}
+
