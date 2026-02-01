@@ -2,16 +2,8 @@
 // This file will not be overwritten on regeneration
 
 ///|
-pub(all) struct GreetImpl {}
-
-///|
-pub impl Exports for GreetImpl with greet(self, name : String) -> String {
-  let _ = self
+pub fn greet(name : String) -> String {
+  let _ = name
   // TODO: implement
   abort("not implemented")
-}
-
-///|
-fn init {
-  register(GreetImpl::{})
 }

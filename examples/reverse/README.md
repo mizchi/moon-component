@@ -4,6 +4,9 @@ This example demonstrates generating WIT from MoonBit exports.
 
 ## Define Exports in MoonBit
 
+Note: This `wit-from-moonbit` flow still requires `pub(open) trait Exports`.
+`moon-component generate` output uses direct functions instead.
+
 ```moonbit
 // src/exports.mbt
 

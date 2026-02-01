@@ -219,12 +219,12 @@ component/
 │       └── cabi.mbt       # Canonical ABI helpers
 └── impl/                  # Implementation (preserved)
     ├── moon.pkg.json      # is-main: true
-    ├── bindings.mbt       # Generated trait & FFI (regenerated)
+    ├── bindings.mbt       # Generated FFI glue (regenerated)
     └── impl.mbt           # User implementation (stub, preserved)
 ```
 
 - `gen/` - Regenerated on each `generate` call
-- `impl/bindings.mbt` - Regenerated (trait definition, FFI glue)
+- `impl/bindings.mbt` - Regenerated (FFI glue)
 - `impl/impl.mbt` - Preserved (user implementation stub)
 - `impl/moon.pkg.json` - Preserved (user can add imports)
 
@@ -286,16 +286,14 @@ interface blob-store {
 ///|
 pub(all) struct Blob(Int) derive(Show, Eq)
 
-// Trait with normalized function names
+// Exported functions with normalized names
 
 ///|
-pub(open) trait Exports {
-  blob_new(Self, data : Array[Byte]) -> Blob // [constructor]blob
-  blob_size(Self, this : Blob) -> UInt // [method]blob.size
-  blob_read(Self, this : Blob, offset : UInt, len : UInt) -> Array[Byte]
-  create_blob(Self, data : Array[Byte]) -> Blob
-  get_blob_size(Self, b : Blob) -> UInt
-}
+pub fn blob_new(data : Array[Byte]) -> Blob // [constructor]blob
+pub fn blob_size(this : Blob) -> UInt // [method]blob.size
+pub fn blob_read(this : Blob, offset : UInt, len : UInt) -> Array[Byte]
+pub fn create_blob(data : Array[Byte]) -> Blob
+pub fn get_blob_size(b : Blob) -> UInt
 ```
 
 ### Implementation Pattern (Copy-based)

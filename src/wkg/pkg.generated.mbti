@@ -4,8 +4,6 @@ package "mizchi/moon_component/src/wkg"
 // Values
 pub fn generate_fetch_script(Array[PackageRef], String) -> String
 
-pub fn generate_wkg_lock(Array[WkgLockEntry]) -> String
-
 pub fn wkg_fetch_command(PackageRef, String) -> String
 
 // Errors
@@ -21,16 +19,6 @@ pub fn PackageRef::parse(String) -> Self?
 pub fn PackageRef::to_string(Self) -> String
 pub impl Eq for PackageRef
 pub impl Show for PackageRef
-
-pub struct WkgLockEntry {
-  ns : String
-  name : String
-  version : String
-  integrity : String?
-}
-pub impl Eq for WkgLockEntry
-pub impl Show for WkgLockEntry
-pub impl ToJson for WkgLockEntry
 
 pub struct WkgRegistry {
   base_url : String

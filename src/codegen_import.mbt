@@ -130,6 +130,16 @@ fn Generator::ffi_import_params(
           parts.push("p" + i.to_string() + "_ptr : Int")
           parts.push("p" + i.to_string() + "_len : Int")
         }
+      Id(id) => {
+        let typedef = self.resolve.types[id]
+        match typedef.kind {
+          List(_) => {
+            parts.push("p" + i.to_string() + "_ptr : Int")
+            parts.push("p" + i.to_string() + "_len : Int")
+          }
+          _ => parts.push("p" + i.to_string() + " : " + self.ffi_type(ty))
+        }
+      }
       _ => parts.push("p" + i.to_string() + " : " + self.ffi_type(ty))
     }
   }
@@ -147,7 +157,30 @@ fn Generator::import_needs_retptr(
 ) -> Bool {
   match func.result {
     None => false
-    Some(String_) => not(self.opts.use_js_string_builtins)
+    Some(ty) => self.import_needs_retptr_type(ty)
+  }
+}
+
+///|
+fn Generator::import_needs_retptr_type(
+  self : Generator,
+  ty : @resolve.Type,
+) -> Bool {
+  match ty {
+    String_ => not(self.opts.use_js_string_builtins)
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        List(_)
+        | Record(_)
+        | Variant(_)
+        | Option(_)
+        | Result(ok=_, err=_)
+        | Tuple(_) => true
+        Alias(inner) => self.import_needs_retptr_type(inner)
+        _ => false
+      }
+    }
     _ => false
   }
 }
@@ -159,16 +192,15 @@ fn Generator::ffi_import_result(
 ) -> String {
   match func.result {
     None => "Unit"
-    Some(String_) =>
-      if self.opts.use_js_string_builtins {
-        "String" // Direct string return
-      } else {
+    Some(ty) =>
+      if self.import_needs_retptr(func) {
         // Return Int instead of Unit to work around MoonBit FFI ABI limitation
         // MoonBit generates (result i32) even for Unit returns, but Canonical ABI expects no result
         // The componentize tool will fix this by changing the import type and removing drop
         "Int"
+      } else {
+        self.ffi_type(ty)
       }
-    Some(ty) => self.ffi_type(ty)
   }
 }
 
@@ -196,8 +228,475 @@ fn Generator::generate_import_wrapper_body(
   func : @resolve.Function,
   ffi_func_name : String,
 ) -> Unit {
-  sb.write_string("  // TODO: Implement canonical ABI conversion\n")
-  sb.write_string("  abort(\"import wrapper not implemented\")\n")
+  let ffi_args : Array[String] = []
+  for i, param in func.params {
+    let (name, ty) = param
+    let snake_name = to_snake_case(name)
+    let safe_name = if snake_name == "self" { "handle" } else { snake_name }
+    match ty {
+      String_ =>
+        if self.opts.use_js_string_builtins {
+          ffi_args.push(safe_name)
+        } else {
+          sb.write_string("  let (p")
+          sb.write_string(i.to_string())
+          sb.write_string("_ptr, p")
+          sb.write_string(i.to_string())
+          sb.write_string("_len) = @cabi.cabi_lower_string(")
+          sb.write_string(safe_name)
+          sb.write_string(")\n")
+          ffi_args.push("p" + i.to_string() + "_ptr")
+          ffi_args.push("p" + i.to_string() + "_len")
+        }
+      Bool => ffi_args.push("if " + safe_name + " { 1 } else { 0 }")
+      U8 => ffi_args.push(safe_name + ".to_int()")
+      U16 | U32 => ffi_args.push(safe_name + ".reinterpret_as_int()")
+      U64 => ffi_args.push(safe_name + ".reinterpret_as_int64()")
+      Char => ffi_args.push(safe_name + ".to_int()")
+      Id(id) => {
+        let typedef = self.resolve.types[id]
+        match typedef.kind {
+          List(inner) => {
+            let elem_size = self.type_size(inner)
+            let elem_align = self.type_align(inner)
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_len = ")
+            sb.write_string(safe_name)
+            sb.write_string(".length()\n")
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, ")
+            sb.write_string(elem_align.to_string())
+            sb.write_string(", p")
+            sb.write_string(i.to_string())
+            sb.write_string("_len * ")
+            sb.write_string(elem_size.to_string())
+            sb.write_string(")\n")
+            sb.write_string("  for i, elem in ")
+            sb.write_string(safe_name)
+            sb.write_string(" {\n")
+            sb.write_string("    let elem_ptr = p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr + i * ")
+            sb.write_string(elem_size.to_string())
+            sb.write_string("\n")
+            self.generate_list_elem_lower(sb, inner, "elem_ptr", "elem")
+            sb.write_string("  }\n")
+            ffi_args.push("p" + i.to_string() + "_ptr")
+            ffi_args.push("p" + i.to_string() + "_len")
+          }
+          Record(_) => {
+            let size = self.type_size(ty)
+            let align = self.type_align(ty)
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, ")
+            sb.write_string(align.to_string())
+            sb.write_string(", ")
+            sb.write_string(size.to_string())
+            sb.write_string(")\n")
+            self.generate_value_lower(
+              sb,
+              "p" + i.to_string() + "_ptr",
+              ty,
+              safe_name,
+              "  ",
+            )
+            ffi_args.push("p" + i.to_string() + "_ptr")
+          }
+          Option(inner) => {
+            let inner_size = self.type_size(inner)
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
+            sb.write_string(inner_size.to_string())
+            sb.write_string(")\n")
+            sb.write_string("  match ")
+            sb.write_string(safe_name)
+            sb.write_string(" {\n")
+            sb.write_string("    Some(val) => {\n")
+            sb.write_string("      @cabi.cabi_write_i32(p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr, 1)\n")
+            self.generate_value_lower(
+              sb,
+              "p" + i.to_string() + "_ptr + 4",
+              inner,
+              "val",
+              "      ",
+            )
+            sb.write_string("    }\n")
+            sb.write_string("    None => @cabi.cabi_write_i32(p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr, 0)\n")
+            sb.write_string("  }\n")
+            ffi_args.push("p" + i.to_string() + "_ptr")
+          }
+          Result(ok=ok_ty, err=err_ty) => {
+            let ok_size = match ok_ty {
+              Some(t) => self.type_size(t)
+              None => 0
+            }
+            let err_size = match err_ty {
+              Some(t) => self.type_size(t)
+              None => 0
+            }
+            let payload_size = if ok_size > err_size {
+              ok_size
+            } else {
+              err_size
+            }
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
+            sb.write_string(payload_size.to_string())
+            sb.write_string(")\n")
+            sb.write_string("  match ")
+            sb.write_string(safe_name)
+            sb.write_string(" {\n")
+            sb.write_string("    Ok(val) => {\n")
+            sb.write_string("      @cabi.cabi_write_i32(p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr, 0)\n")
+            match ok_ty {
+              Some(t) =>
+                self.generate_value_lower(
+                  sb,
+                  "p" + i.to_string() + "_ptr + 4",
+                  t,
+                  "val",
+                  "      ",
+                )
+              None => ()
+            }
+            sb.write_string("    }\n")
+            sb.write_string("    Err(e) => {\n")
+            sb.write_string("      @cabi.cabi_write_i32(p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr, 1)\n")
+            match err_ty {
+              Some(t) =>
+                self.generate_value_lower(
+                  sb,
+                  "p" + i.to_string() + "_ptr + 4",
+                  t,
+                  "e",
+                  "      ",
+                )
+              None => ()
+            }
+            sb.write_string("    }\n")
+            sb.write_string("  }\n")
+            ffi_args.push("p" + i.to_string() + "_ptr")
+          }
+          Variant(cases) => {
+            let mut max_payload = 0
+            for case in cases {
+              match case.case_type {
+                Some(t) => {
+                  let size = self.type_size(t)
+                  if size > max_payload {
+                    max_payload = size
+                  }
+                }
+                None => ()
+              }
+            }
+            let total_size = 4 + max_payload
+            sb.write_string("  let p")
+            sb.write_string(i.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, ")
+            sb.write_string(total_size.to_string())
+            sb.write_string(")\n")
+            sb.write_string("  match ")
+            sb.write_string(safe_name)
+            sb.write_string(" {\n")
+            for case_i, case in cases {
+              sb.write_string("    ")
+              sb.write_string(to_pascal_case(case.name))
+              match case.case_type {
+                Some(_) => sb.write_string("(val)")
+                None => ()
+              }
+              sb.write_string(" => {\n")
+              sb.write_string("      @cabi.cabi_write_i32(p")
+              sb.write_string(i.to_string())
+              sb.write_string("_ptr, ")
+              sb.write_string(case_i.to_string())
+              sb.write_string(")\n")
+              match case.case_type {
+                Some(t) =>
+                  self.generate_value_lower(
+                    sb,
+                    "p" + i.to_string() + "_ptr + 4",
+                    t,
+                    "val",
+                    "      ",
+                  )
+                None => ()
+              }
+              sb.write_string("    }\n")
+            }
+            sb.write_string("  }\n")
+            ffi_args.push("p" + i.to_string() + "_ptr")
+          }
+          Flags(_) => ffi_args.push(safe_name + ".to_bits()")
+          Enum(_) => ffi_args.push(safe_name + ".ordinal()")
+          Resource | Handle(_) => ffi_args.push(safe_name + ".0")
+          Alias(inner) =>
+            match inner {
+              String_ =>
+                if self.opts.use_js_string_builtins {
+                  ffi_args.push(safe_name)
+                } else {
+                  sb.write_string("  let (p")
+                  sb.write_string(i.to_string())
+                  sb.write_string("_ptr, p")
+                  sb.write_string(i.to_string())
+                  sb.write_string("_len) = @cabi.cabi_lower_string(")
+                  sb.write_string(safe_name)
+                  sb.write_string(")\n")
+                  ffi_args.push("p" + i.to_string() + "_ptr")
+                  ffi_args.push("p" + i.to_string() + "_len")
+                }
+              _ => ffi_args.push(safe_name)
+            }
+          _ => ffi_args.push(safe_name)
+        }
+      }
+      _ => ffi_args.push(safe_name)
+    }
+  }
+  if self.import_needs_retptr(func) {
+    let retptr_size = match func.result {
+      Some(ty) => self.import_retptr_size(ty)
+      None => 0
+    }
+    sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, 4, ")
+    sb.write_string(retptr_size.to_string())
+    sb.write_string(")\n")
+    ffi_args.push("retptr")
+    sb.write_string("  let _ = ")
+    sb.write_string(ffi_func_name)
+    sb.write_string("(")
+    sb.write_string(ffi_args.join(", "))
+    sb.write_string(")\n")
+    match func.result {
+      Some(ty) => self.generate_import_retptr_result(sb, ty)
+      None => sb.write_string("  ()\n")
+    }
+  } else {
+    match func.result {
+      None => {
+        sb.write_string("  ")
+        sb.write_string(ffi_func_name)
+        sb.write_string("(")
+        sb.write_string(ffi_args.join(", "))
+        sb.write_string(")\n")
+      }
+      Some(ty) => {
+        sb.write_string("  let result = ")
+        sb.write_string(ffi_func_name)
+        sb.write_string("(")
+        sb.write_string(ffi_args.join(", "))
+        sb.write_string(")\n")
+        sb.write_string("  ")
+        sb.write_string(self.import_direct_result_expr("result", ty))
+        sb.write_string("\n")
+      }
+    }
+  }
+}
+
+///|
+fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
+  match ty {
+    String_ => 8
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        List(_) => 8
+        Record(fields) => self.compute_record_size(fields)
+        Option(inner) => 4 + self.type_size(inner)
+        Result(ok=ok_ty, err=err_ty) => {
+          let ok_size = match ok_ty {
+            Some(t) => self.type_size(t)
+            None => 0
+          }
+          let err_size = match err_ty {
+            Some(t) => self.type_size(t)
+            None => 0
+          }
+          let payload_size = if ok_size > err_size { ok_size } else { err_size }
+          4 + payload_size
+        }
+        Variant(cases) => {
+          let mut max_payload = 0
+          for case in cases {
+            match case.case_type {
+              Some(t) => {
+                let size = self.type_size(t)
+                if size > max_payload {
+                  max_payload = size
+                }
+              }
+              None => ()
+            }
+          }
+          4 + max_payload
+        }
+        Tuple(types) => {
+          let mut size = 0
+          for t in types {
+            let align = self.type_align(t)
+            size = (size + align - 1) & -align
+            size = size + self.type_size(t)
+          }
+          size
+        }
+        Alias(inner) => self.import_retptr_size(inner)
+        _ => 8
+      }
+    }
+    _ => 8
+  }
+}
+
+///|
+fn Generator::import_direct_result_expr(
+  self : Generator,
+  result_var : String,
+  ty : @resolve.Type,
+) -> String {
+  match ty {
+    Bool => result_var + " != 0"
+    U8 => result_var + ".to_byte()"
+    U16 | U32 => result_var + ".reinterpret_as_uint()"
+    U64 => result_var + ".reinterpret_as_uint64()"
+    Char => result_var + ".unsafe_to_char()"
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        Flags(_) =>
+          self.resolve_type_name(id) + "::from_bits(" + result_var + ")"
+        Enum(_) =>
+          self.resolve_type_name(id) + "::from_ordinal(" + result_var + ")"
+        Resource => self.resolve_type_name(id) + "(" + result_var + ")"
+        Handle(handle) => {
+          let res_id = match handle {
+            Own(rid) => rid
+            Borrow(rid) => rid
+          }
+          self.resolve_type_name(res_id) + "(" + result_var + ")"
+        }
+        Alias(inner) => self.import_direct_result_expr(result_var, inner)
+        _ => result_var
+      }
+    }
+    _ => result_var
+  }
+}
+
+///|
+fn Generator::generate_import_retptr_result(
+  self : Generator,
+  sb : StringBuilder,
+  ty : @resolve.Type,
+) -> Unit {
+  match ty {
+    String_ => {
+      sb.write_string("  let result_ptr = @cabi.cabi_read_i32(retptr)\n")
+      sb.write_string("  let result_len = @cabi.cabi_read_i32(retptr + 4)\n")
+      sb.write_string("  @cabi.cabi_lift_string(result_ptr, result_len)\n")
+    }
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        List(inner) => {
+          let elem_size = self.type_size(inner)
+          sb.write_string("  let result_ptr = @cabi.cabi_read_i32(retptr)\n")
+          sb.write_string(
+            "  let result_len = @cabi.cabi_read_i32(retptr + 4)\n",
+          )
+          sb.write_string("  let result : Array[")
+          sb.write_string(self.type_name(inner))
+          sb.write_string("] = {\n")
+          sb.write_string("    let arr : Array[")
+          sb.write_string(self.type_name(inner))
+          sb.write_string("] = Array::new(capacity=result_len)\n")
+          sb.write_string("    for i = 0; i < result_len; i = i + 1 {\n")
+          sb.write_string("      let elem_ptr = result_ptr + i * ")
+          sb.write_string(elem_size.to_string())
+          sb.write_string("\n")
+          sb.write_string("      arr.push(")
+          sb.write_string(self.generate_list_elem_lift(inner, "elem_ptr"))
+          sb.write_string(")\n")
+          sb.write_string("    }\n")
+          sb.write_string("    arr\n")
+          sb.write_string("  }\n")
+          sb.write_string("  result\n")
+        }
+        Record(_) => {
+          sb.write_string("  ")
+          sb.write_string(self.generate_field_lift("retptr", 0, ty))
+          sb.write_string("\n")
+        }
+        Option(inner) => {
+          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          sb.write_string("    0 => None\n")
+          sb.write_string("    _ => Some(")
+          sb.write_string(self.generate_field_lift("retptr + 4", 0, inner))
+          sb.write_string(")\n")
+          sb.write_string("  }\n")
+        }
+        Result(ok=ok_ty, err=err_ty) => {
+          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          sb.write_string("    0 => ")
+          match ok_ty {
+            Some(t) => {
+              sb.write_string("Ok(")
+              sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+              sb.write_string(")\n")
+            }
+            None => sb.write_string("Ok(())\n")
+          }
+          sb.write_string("    _ => ")
+          match err_ty {
+            Some(t) => {
+              sb.write_string("Err(")
+              sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+              sb.write_string(")\n")
+            }
+            None => sb.write_string("Err(())\n")
+          }
+          sb.write_string("  }\n")
+        }
+        Variant(cases) => {
+          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          for case_i, case in cases {
+            sb.write_string("    ")
+            sb.write_string(case_i.to_string())
+            sb.write_string(" => ")
+            sb.write_string(to_pascal_case(case.name))
+            match case.case_type {
+              Some(t) => {
+                sb.write_string("(")
+                sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+                sb.write_string(")\n")
+              }
+              None => sb.write_string("\n")
+            }
+          }
+          sb.write_string("    _ => abort(\"invalid variant discriminant\")\n")
+          sb.write_string("  }\n")
+        }
+        Alias(inner) => self.generate_import_retptr_result(sb, inner)
+        _ => sb.write_string("  @cabi.cabi_read_i32(retptr)\n")
+      }
+    }
+    _ => sb.write_string("  @cabi.cabi_read_i32(retptr)\n")
+  }
 }
 
 ///|
@@ -206,7 +705,6 @@ fn Generator::generate_import_pkg(
   id : Int,
   _imports : Array[(String, String, String)],
 ) -> Unit {
-  let iface = self.resolve.interfaces[id]
   let sb = StringBuilder::new()
   let cabi_path = self.cabi_import_path()
   let filename = match self.opts.pkg_format {

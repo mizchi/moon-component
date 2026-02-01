@@ -1,10 +1,7 @@
 // Strings library implementation
 
 ///|
-pub(all) struct UtilsImpl {}
-
-///|
-pub impl Exports for UtilsImpl with reverse(_self, s : String) -> String {
+pub fn reverse(s : String) -> String {
   let chars = s.to_array()
   let len = chars.length()
   let result = StringBuilder::new()
@@ -15,11 +12,11 @@ pub impl Exports for UtilsImpl with reverse(_self, s : String) -> String {
 }
 
 ///|
-pub impl Exports for UtilsImpl with uppercase(_self, s : String) -> String {
+pub fn uppercase(s : String) -> String {
   let result = StringBuilder::new()
   for c in s {
     let upper = if c >= 'a' && c <= 'z' {
-      Char::from_int(c.to_int() - 32)
+      (c.to_int() - 32).unsafe_to_char()
     } else {
       c
     }
@@ -29,15 +26,10 @@ pub impl Exports for UtilsImpl with uppercase(_self, s : String) -> String {
 }
 
 ///|
-pub impl Exports for UtilsImpl with repeat(_self, s : String, n : UInt) -> String {
+pub fn repeat(s : String, n : UInt) -> String {
   let result = StringBuilder::new()
   for i = 0; i < n.reinterpret_as_int(); i = i + 1 {
     result.write_string(s)
   }
   result.to_string()
-}
-
-///|
-fn init {
-  register(UtilsImpl::{})
 }

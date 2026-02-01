@@ -66,6 +66,7 @@ pub struct Generator {
   world_id : Int
   output : Array[GeneratedFile]
   exports_info : Array[ExportInfo]
+  moon_mod_name : Ref[String]
 }
 
 ///|
@@ -74,13 +75,23 @@ pub fn Generator::new(
   world_id : Int,
   opts : GeneratorOpts,
 ) -> Generator {
-  { opts, resolve, world_id, output: [], exports_info: [] }
+  {
+    opts,
+    resolve,
+    world_id,
+    output: [],
+    exports_info: [],
+    moon_mod_name: { val: "" },
+  }
 }
 
 ///|
 /// Generate all files
 pub fn Generator::generate(self : Generator) -> Array[GeneratedFile] {
   let world = self.resolve.worlds[self.world_id]
+
+  // Load or generate moon.mod.json first
+  self.load_or_generate_moon_mod(world)
 
   // Generate canonical ABI helpers
   self.generate_cabi()

@@ -32,6 +32,7 @@ pub struct Generator {
   world_id : Int
   output : Array[GeneratedFile]
   exports_info : Array[ExportInfo]
+  moon_mod_name : Ref[String]
 }
 pub fn Generator::generate(Self) -> Array[GeneratedFile]
 pub fn Generator::new(@resolve.Resolve, Int, GeneratorOpts) -> Self

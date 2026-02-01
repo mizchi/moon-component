@@ -17,30 +17,6 @@ fn Generator::generate_interface_export(self : Generator, id : Int) -> Unit {
     self.generate_type_def(sb, type_id)
   }
 
-  // Trait definition
-  sb.write_string("/// Export trait for ")
-  sb.write_string(iface_name)
-  sb.write_string("\npub(open) trait Exports {\n")
-  for _, func in iface.functions {
-    let sig = self.function_trait_sig(func)
-    sb.write_string("  ")
-    sb.write_string(sig)
-    sb.write_string("\n")
-  }
-  sb.write_string("}\n\n")
-
-  // Register function
-  sb.write_string("let exports_impl : Ref[&Exports?] = { val: None }\n\n")
-  sb.write_string("pub fn register(impl_ : &Exports) -> Unit {\n")
-  sb.write_string("  exports_impl.val = Some(impl_)\n")
-  sb.write_string("}\n\n")
-  sb.write_string("fn get_exports() -> &Exports {\n")
-  sb.write_string("  guard exports_impl.val is Some(impl_) else {\n")
-  sb.write_string("    abort(\"exports not registered\")\n")
-  sb.write_string("  }\n")
-  sb.write_string("  impl_\n")
-  sb.write_string("}\n\n")
-
   // cabi_realloc re-export
   sb.write_string("///| Re-export cabi_realloc for wasm linking\n")
   sb.write_string("pub fn cabi_realloc(\n")
@@ -80,7 +56,7 @@ fn Generator::generate_interface_export(self : Generator, id : Int) -> Unit {
 
   // Generate impl/impl.mbt (user implementation)
   if self.opts.generate_impl {
-    self.generate_impl(id, iface_name, iface)
+    self.generate_impl(iface_name, iface)
   }
 }
 
@@ -143,7 +119,7 @@ fn Generator::generate_ffi_export(
     }
   }
 
-  // Call trait method
+  // Call user implementation
   let call_args : Array[String] = []
   for param in func.params {
     let (pname, ptype) = param
@@ -153,7 +129,7 @@ fn Generator::generate_ffi_export(
   }
   if returns_indirect {
     // Complex return: allocate result structure and return pointer
-    sb.write_string("  let result = get_exports().")
+    sb.write_string("  let result = ")
     sb.write_string(normalized_name)
     sb.write_string("(")
     sb.write_string(call_args.join(", "))
@@ -166,7 +142,6 @@ fn Generator::generate_ffi_export(
     if result_conv.0.length() > 0 {
       sb.write_string(result_conv.0)
     }
-    sb.write_string("get_exports().")
     sb.write_string(normalized_name)
     sb.write_string("(")
     sb.write_string(call_args.join(", "))

@@ -348,21 +348,6 @@ fn Generator::ffi_to_type_conv(
 }
 
 ///|
-fn Generator::function_trait_sig(
-  self : Generator,
-  func : @resolve.Function,
-) -> String {
-  let sb = StringBuilder::new()
-  let normalized_name = normalize_func_name(func.name, func.kind)
-  sb.write_string(normalized_name)
-  sb.write_string("(")
-  sb.write_string(self.param_list(func.params))
-  sb.write_string(") -> ")
-  sb.write_string(self.result_type(func.result))
-  sb.to_string()
-}
-
-///|
 fn Generator::param_list(
   self : Generator,
   params : Array[(String, @resolve.Type)],

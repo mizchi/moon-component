@@ -57,5 +57,3 @@ test "generate_fetch_script" {
   inspect(script.contains("wkg wit fetch wasi:cli"), content="true")
   inspect(script.contains("mkdir -p"), content="true")
 }
-
-
