@@ -41,12 +41,13 @@ pub impl @json.FromJson for Type with from_json(json, path) {
         "string" => String_
         _ => raise @json.JsonDecodeError((path, "Type: unknown type " + s))
       }
-    Object(obj) =>
+    Object(obj) => {
       // Handle {"id": 123} format for type references
-      match obj.get("id") {
-        Some(Number(n, ..)) => Id(n.to_int())
-        _ => raise @json.JsonDecodeError((path, "Type: expected id field"))
+      guard obj.get("id") is Some(Number(n, ..)) else {
+        raise @json.JsonDecodeError((path, "Type: expected id field"))
       }
+      Id(n.to_int())
+    }
     Number(n, ..) => Id(n.to_int())
     _ => raise @json.JsonDecodeError((path, "Type: expected string or object"))
   }
@@ -81,21 +82,20 @@ pub impl @json.FromJson for FunctionKind with from_json(json, path) {
       }
     Object(obj) => {
       // Check for constructor
-      match obj.get("constructor") {
-        Some(Number(n, ..)) => return Constructor(n.to_int())
-        _ => ()
+      guard obj.get("constructor") is Some(Number(n, ..)) else {
+        // Check for method
+        guard obj.get("method") is Some(Number(m, ..)) else {
+          // Check for static
+          guard obj.get("static") is Some(Number(s, ..)) else {
+            raise @json.JsonDecodeError(
+              (path, "FunctionKind: unknown object kind"),
+            )
+          }
+          return Static(s.to_int())
+        }
+        return Method(m.to_int())
       }
-      // Check for method
-      match obj.get("method") {
-        Some(Number(n, ..)) => return Method(n.to_int())
-        _ => ()
-      }
-      // Check for static
-      match obj.get("static") {
-        Some(Number(n, ..)) => return Static(n.to_int())
-        _ => ()
-      }
-      raise @json.JsonDecodeError((path, "FunctionKind: unknown object kind"))
+      return Constructor(n.to_int())
     }
     _ =>
       raise @json.JsonDecodeError(
@@ -371,15 +371,13 @@ pub(all) enum TypeOwner {
 pub impl @json.FromJson for TypeOwner with from_json(json, _path) {
   match json {
     Null => None
-    Object(obj) =>
-      match obj.get("interface") {
-        Some(Number(n, ..)) => Interface(n.to_int())
-        _ =>
-          match obj.get("world") {
-            Some(Number(n, ..)) => World(n.to_int())
-            _ => None
-          }
+    Object(obj) => {
+      guard obj.get("interface") is Some(Number(n, ..)) else {
+        guard obj.get("world") is Some(Number(m, ..)) else { None }
+        World(m.to_int())
       }
+      Interface(n.to_int())
+    }
     _ => None
   }
 }
