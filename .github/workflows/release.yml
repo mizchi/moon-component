@@ -17,13 +17,13 @@ jobs:
           - os: macos-latest
             asset_os: macos
             asset_arch: arm64
-          - os: macos-13
+          - os: macos-15-intel
             asset_os: macos
             asset_arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: moonbitlang/setup-moonbit@v1
+      - uses: moonbit-community/setup-moonbit@v1
       - run: ./tools/dist/package.sh ${{ matrix.asset_os }} ${{ matrix.asset_arch }}
       - uses: actions/upload-artifact@v4
         with:
