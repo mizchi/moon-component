@@ -2,7 +2,7 @@
 package "mizchi/moon_component/src"
 
 import {
-  "mizchi/wit.mbt/src/resolve",
+  "mizchi/moon_component/src/resolve",
 }
 
 // Values

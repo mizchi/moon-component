@@ -4,7 +4,8 @@
     "moonbitlang/core/json",
     { "path": "moonbitlang/x/fs", "alias": "fs" },
     { "path": "moonbitlang/x/sys", "alias": "sys" },
+    { "path": "mizchi/wit", "alias": "wit" },
     { "path": "mizchi/moon_component/src", "alias": "codegen" },
-    { "path": "mizchi/wit.mbt/src/resolve", "alias": "resolve" }
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" }
   ]
 }

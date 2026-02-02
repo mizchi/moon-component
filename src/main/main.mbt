@@ -4,11 +4,12 @@ fn main {
   let args = @sys.get_cli_args()
   if args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json> [options]\n\nOptions:\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component <resolve.json|wit-path> [options]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
-  let json_path = args[1]
+  let mut input_path = args[1]
+  let mut input_kind = "auto"
 
   // Parse options
   let mut out_dir : String? = None
@@ -20,9 +21,21 @@ fn main {
   let mut wkg_version = "0.1.0"
   let mut pkg_format : @codegen.PkgFormat = @codegen.Json
   let mut use_js_string_builtins = false
+  let mut world_name : String? = None
   let mut i = 2
   while i < args.length() {
-    if args[i] == "--out-dir" && i + 1 < args.length() {
+    if args[i] == "--wit" && i + 1 < args.length() {
+      input_path = args[i + 1]
+      input_kind = "wit"
+      i = i + 2
+    } else if args[i] == "--resolve-json" && i + 1 < args.length() {
+      input_path = args[i + 1]
+      input_kind = "json"
+      i = i + 2
+    } else if args[i] == "--world" && i + 1 < args.length() {
+      world_name = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--out-dir" && i + 1 < args.length() {
       out_dir = Some(args[i + 1])
       i = i + 2
     } else if args[i] == "--project-name" && i + 1 < args.length() {
@@ -57,24 +70,52 @@ fn main {
       i = i + 1
     }
   }
-
-  // Read and parse JSON
-  let json_str = @fs.read_file_to_string(json_path) catch {
-    _ => {
-      println("Error reading file: " + json_path)
-      abort("exit")
-    }
+  let is_json = if input_kind == "json" {
+    true
+  } else if input_kind == "wit" {
+    false
+  } else {
+    input_path.has_suffix(".json")
   }
-  let json = @json.parse(json_str) catch {
-    _ => {
-      println("Error parsing JSON")
-      abort("exit")
+  let input : @resolve.ResolveInput = if is_json {
+    // Read and parse JSON
+    let json_str = @fs.read_file_to_string(input_path) catch {
+      _ => {
+        println("Error reading file: " + input_path)
+        abort("exit")
+      }
     }
-  }
-  let input : @resolve.ResolveInput = @json.from_json(json) catch {
-    e => {
-      println("Error decoding ResolveInput: " + e.to_string())
-      abort("exit")
+    let json = @json.parse(json_str) catch {
+      _ => {
+        println("Error parsing JSON")
+        abort("exit")
+      }
+    }
+    @json.from_json(json) catch {
+      e => {
+        println("Error decoding ResolveInput: " + e.to_string())
+        abort("exit")
+      }
+    }
+  } else {
+    let resolved_result : Result[@wit.ResolveInput, @wit.ParseError] = match
+      world_name {
+      Some(name) => @wit.resolve_path(input_path, world=name)
+      None => @wit.resolve_path(input_path)
+    }
+    let resolved = match resolved_result {
+      Ok(v) => v
+      Err(e) => {
+        println("Error resolving WIT: " + e.to_string())
+        abort("exit")
+      }
+    }
+    let json = resolved.to_json()
+    @json.from_json(json) catch {
+      e => {
+        println("Error decoding ResolveInput: " + e.to_string())
+        abort("exit")
+      }
     }
   }
 
