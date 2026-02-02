@@ -334,6 +334,7 @@ fn main() -> Result<()> {
 
 fn parse_wit(wit_path: &Path, world: Option<&str>) -> Result<(Resolve, wit_parser::WorldId)> {
     let mut resolve = Resolve::default();
+    apply_wit_features(&mut resolve);
 
     // Determine wit directory
     let wit_dir = if wit_path.is_dir() {
@@ -388,6 +389,17 @@ fn parse_wit(wit_path: &Path, world: Option<&str>) -> Result<(Resolve, wit_parse
     };
 
     Ok((resolve, world_id))
+}
+
+fn apply_wit_features(resolve: &mut Resolve) {
+    if let Ok(features) = std::env::var("MOON_COMPONENT_WIT_FEATURES") {
+        for feature in features.split(|c| c == ',' || c == ' ' || c == '\t') {
+            let feature = feature.trim();
+            if !feature.is_empty() {
+                resolve.features.insert(feature.to_string());
+            }
+        }
+    }
 }
 
 fn cmd_generate(
@@ -899,11 +911,23 @@ fn cmd_component(
 }
 
 fn cmd_resolve_json(wit_path: &Path, world: Option<&str>) -> Result<()> {
-    let (resolve, world_id) = parse_wit(wit_path, world)?;
+    let mut resolve = Resolve::new();
+    apply_wit_features(&mut resolve);
+    let (pkg_id, _sources) = resolve.push_path(wit_path)?;
+
+    let world_id = match resolve.select_world(&[pkg_id], world) {
+        Ok(id) => Some(id.index()),
+        Err(err) => {
+            if world.is_some() {
+                return Err(err);
+            }
+            None
+        }
+    };
 
     let output = serde_json::json!({
         "resolve": resolve,
-        "world_id": world_id.index()
+        "world_id": world_id,
     });
 
     println!("{}", serde_json::to_string_pretty(&output)?);

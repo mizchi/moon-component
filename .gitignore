@@ -17,3 +17,7 @@ examples/tests/scala-host/project/target/
 
 # Bundle output
 dist/
+
+# wit-parser test suite (fetched from wasm-tools)
+tests/wit-parser/ui/
+tests/wit-parser/.wasm-tools/

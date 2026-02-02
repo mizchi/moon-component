@@ -9,11 +9,11 @@ name = "moon-component"
 path = "src/main.rs"
 
 [dependencies]
-wit-parser = { version = "0.243", features = ["serde"] }
-wit-component = "0.243"
-wasm-encoder = "0.243"
-wasmparser = "0.243"
-wasmprinter = "0.243"
+wit-parser = { version = "0.244", features = ["serde", "wat"] }
+wit-component = "0.244"
+wasm-encoder = "0.244"
+wasmparser = "0.244"
+wasmprinter = "0.244"
 wat = "1"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }

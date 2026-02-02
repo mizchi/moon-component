@@ -170,6 +170,7 @@ pub impl @json.FromJson for Function with from_json(json, path) {
 pub(all) enum WorldItem {
   Interface(InterfaceRef)
   Function(Function)
+  Type(Int)
 } derive(Show, Eq, ToJson)
 
 // Custom FromJson for WorldItem to handle lowercase keys
@@ -197,9 +198,30 @@ pub impl @json.FromJson for WorldItem with from_json(json, path) {
           Function(f)
         }
         None =>
-          raise @json.JsonDecodeError(
-            (path, "WorldItem: expected interface or function"),
-          )
+          match obj.get("type") {
+            Some(t) => {
+              let type_id = match t {
+                Number(n, ..) => n.to_int()
+                Object(tobj) =>
+                  match tobj.get("id") {
+                    Some(Number(n, ..)) => n.to_int()
+                    _ =>
+                      raise @json.JsonDecodeError(
+                        (path.add_key("type"), "WorldItem: invalid type id"),
+                      )
+                  }
+                _ =>
+                  raise @json.JsonDecodeError(
+                    (path.add_key("type"), "WorldItem: invalid type id"),
+                  )
+              }
+              Type(type_id)
+            }
+            None =>
+              raise @json.JsonDecodeError(
+                (path, "WorldItem: expected interface, function, or type"),
+              )
+          }
       }
   }
 }

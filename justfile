@@ -20,6 +20,14 @@ install: build-cli
 test *args:
     moon test {{args}}
 
+# Update wit-parser standard tests (from wasm-tools)
+wit-tests-update:
+    ./tools/wit-tests/update.sh
+
+# Run wit-parser standard tests
+wit-tests-run *args:
+    ./tools/wit-tests/run.py {{args}}
+
 # Format code
 fmt:
     moon fmt

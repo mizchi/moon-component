@@ -200,6 +200,7 @@ pub impl @json.FromJson for World
 pub(all) enum WorldItem {
   Interface(InterfaceRef)
   Function(Function)
+  Type(Int)
 }
 pub impl Eq for WorldItem
 pub impl Show for WorldItem

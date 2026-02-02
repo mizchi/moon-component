@@ -224,6 +224,39 @@ fn Generator::interface_path(
 }
 
 ///|
+fn Generator::world_path(
+  self : Generator,
+  world : @resolve.World,
+  filename : String,
+) -> String {
+  let dir = match world.pkg {
+    Some(pkg_id) => {
+      let pkg = self.resolve.packages[pkg_id]
+      let sb = StringBuilder::new()
+      sb.write_string(self.opts.gen_dir)
+      sb.write_string("/world/")
+      sb.write_string(pkg.name.ns)
+      sb.write_string("/")
+      sb.write_string(pkg.name.name)
+      sb.write_string("/")
+      sb.write_string(world.name)
+      sb.to_string()
+    }
+    None => {
+      let sb = StringBuilder::new()
+      sb.write_string(self.opts.gen_dir)
+      sb.write_string("/world/")
+      sb.write_string(world.name)
+      sb.to_string()
+    }
+  }
+  match self.opts.out_dir {
+    Some(out) => out + "/" + dir + "/" + filename
+    None => dir + "/" + filename
+  }
+}
+
+///|
 /// Dependency info for wkg.toml
 pub struct WkgDependency {
   ns : String
@@ -271,7 +304,7 @@ fn Generator::detect_dependencies(
           None => ()
         }
       }
-      Function(_) => ()
+      Function(_) | Type(_) => ()
     }
   }
   deps
@@ -349,6 +382,38 @@ fn Generator::generate_impl(
   sb.write_string("\n")
   sb.write_string("// Edit this file to implement the interface\n\n")
   for _, func in iface.functions {
+    let normalized_name = normalize_func_name(func.name, func.kind)
+    sb.write_string("///|\n")
+    sb.write_string("/// Export: ")
+    sb.write_string(func.name)
+    sb.write_string("\n")
+    sb.write_string("pub fn ")
+    sb.write_string(normalized_name)
+    sb.write_string("(")
+    sb.write_string(self.param_list(func.params))
+    sb.write_string(") -> ")
+    sb.write_string(self.impl_result_type(func.result))
+    sb.write_string(" {\n")
+    sb.write_string("  abort(\"not implemented\")\n")
+    sb.write_string("}\n\n")
+  }
+  let path = self.impl_path("impl.mbt")
+  self.output.push({ path, content: sb.to_string(), is_stub: true })
+}
+
+///|
+/// Generate impl/impl.mbt stub for world-level functions
+fn Generator::generate_world_impl(
+  self : Generator,
+  world_name : String,
+  funcs : Array[@resolve.Function],
+) -> Unit {
+  let sb = StringBuilder::new()
+  sb.write_string("// User implementation for world ")
+  sb.write_string(world_name)
+  sb.write_string("\n")
+  sb.write_string("// Edit this file to implement the world exports\n\n")
+  for func in funcs {
     let normalized_name = normalize_func_name(func.name, func.kind)
     sb.write_string("///|\n")
     sb.write_string("/// Export: ")

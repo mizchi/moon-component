@@ -97,18 +97,20 @@ pub fn Generator::generate(self : Generator) -> Array[GeneratedFile] {
   self.generate_cabi()
 
   // Generate exports
+  self.generate_world_function_exports(world)
   for _, item in world.exports {
     match item {
       Interface(iref) => self.generate_interface_export(iref.id)
-      Function(_) => () // TODO: world-level functions
+      Function(_) | Type(_) => ()
     }
   }
 
   // Generate imports
+  self.generate_world_function_imports(world)
   for _, item in world.imports {
     match item {
       Interface(iref) => self.generate_interface_import(iref.id)
-      Function(_) => () // TODO
+      Function(_) | Type(_) => ()
     }
   }
 

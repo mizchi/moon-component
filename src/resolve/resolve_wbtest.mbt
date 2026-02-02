@@ -168,3 +168,11 @@ test "function_from_json_no_result" {
   inspect(func.name, content="log")
   inspect(func.result, content="None")
 }
+
+///|
+/// Test WorldItem FromJson for type entries
+test "world_item_from_json_type" {
+  let json = @json.parse("{\"type\": 3}") catch { _ => panic() }
+  let item : WorldItem = @json.from_json(json) catch { _ => panic() }
+  inspect(item, content="Type(3)")
+}
