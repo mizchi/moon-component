@@ -10,6 +10,22 @@ default:
 build-cli:
     cargo build --release --manifest-path tools/moon-component/Cargo.toml
 
+# Build the MoonBit native CLI
+build-native:
+    moon build --target native --release -C src/main
+
+# Build the MoonBit JS CLI
+build-js:
+    moon build --target js --release -C src/main
+
+# Package native binary (os arch)
+dist-package os arch:
+    ./tools/dist/package.sh {{os}} {{arch}}
+
+# Build npm package assets
+npm-build:
+    ./tools/npm/build.sh
+
 # Install moon-component to ~/.local/bin
 install: build-cli
     mkdir -p ~/.local/bin

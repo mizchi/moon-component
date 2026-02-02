@@ -1,0 +1,26 @@
+{
+  "name": "@mizchi/moon-component",
+  "version": "0.1.0",
+  "description": "WebAssembly Component Model tooling for MoonBit (JS build)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mizchi/moon-component"
+  },
+  "homepage": "https://github.com/mizchi/moon-component",
+  "bin": {
+    "moon-component": "bin/moon-component"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "prepack": "bash ../tools/npm/build.sh"
+  }
+}

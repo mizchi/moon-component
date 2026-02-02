@@ -5,12 +5,22 @@ WebAssembly Component Model tooling for MoonBit.
 ## Installation
 
 ```bash
-# Build the CLI
-cargo build --release --manifest-path tools/moon-component/Cargo.toml
+# Prebuilt binary (macOS/Linux)
+curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
+
+# npm (JS build)
+npm i -g @mizchi/moon-component
+```
+
+```bash
+# Build from source (MoonBit)
+moon build --target native --release -C src/main
 
 # Add to PATH (optional)
-export PATH="$PWD/tools/moon-component/target/release:$PATH"
+export PATH="$PWD/_build/native/release/build/src/main:$PATH"
 ```
+
+Note: npm/JS build currently targets the MoonBit CLI subset (codegen). For the full legacy workflow, use the Rust CLI in `tools/moon-component`.
 
 ## Quick Start
 
