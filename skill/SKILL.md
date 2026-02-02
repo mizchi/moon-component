@@ -1,70 +1,68 @@
 ---
 name: moon-component
-description: Project-specific workflow for mizchi/moon-component (MoonBit CLI + release flow).
+description: How to use the moon-component CLI (MoonBit WIT/component workflow).
 ---
 
 # moon-component Skill
 
-Use this skill when working in this repository. It captures project conventions and the current release workflow.
+Use this skill when you need to **use the moon-component CLI** to build or compose WebAssembly Components from WIT + MoonBit.
 
-## Project Structure
-
-- MoonBit module root: `moon.mod.json`
-- Packages are per directory with `moon.pkg.json`
-- CLI entry: `src/main/main.mbt`
-- Rust wrapper CLI: `tools/moon-component`
-- Examples live under `examples/`
-- Docs live under `docs/`
-
-## Coding Conventions
-
-- MoonBit code uses block separators `///|`
-- Prefer adding deprecated blocks to `deprecated.mbt` in each package
-- Keep file names descriptive and cohesive
-
-## Common Commands
+## Install
 
 ```bash
-# Format + update interface summaries
-moon info
-moon fmt
+# Prebuilt binary (macOS/Linux)
+curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
-# Tests
-moon test
+# npx (no install)
+npx @mizchi/moon-component
 
-# Build MoonBit CLI
-moon build --target native --release -C src/main
-
-# Build JS CLI assets
-./tools/npm/build.sh
-
-# Package prebuilt binaries
-./tools/dist/package.sh <os> <arch>
+# npm
+npm i -g @mizchi/moon-component
 ```
 
-## Release Workflow (just)
-
-Local release (version bump + format + npm build + commit + tag):
+If you need `bundle/plug/compose`, install `wac`:
 
 ```bash
-just release-local 0.1.2
+cargo install wac-cli
 ```
 
-CI artifact build only:
+## Common Commands (CLI)
 
 ```bash
-just release-ci macos arm64
-just release-ci linux x64
+# Generate MoonBit bindings from WIT
+moon-component generate wit/world.wit -o .
+
+# Build core wasm (MoonBit)
+moon build --target wasm --release impl
+
+# Componentize core wasm
+moon-component componentize _build/wasm/release/build/impl/impl.wasm \
+  --wit-dir wit -o impl.component.wasm
+
+# Full workflow (generate + build + componentize)
+moon-component component wit/world.wit -o impl.component.wasm --release
 ```
 
-Notes:
-- `release-local` updates `moon.mod.json` version and creates `vX.Y.Z` tag
-- CI release is handled by `.github/workflows/release.yml`
+## Compose Components (wac)
+
+```bash
+wac plug \
+  --plug dep-a.component.wasm \
+  --plug dep-b.component.wasm \
+  app.component.wasm \
+  -o composed.component.wasm
+```
+
+## Guest / Host
+
+- **Guest**: WIT 実装側。`generate` で `impl/` を生成して実装し、`componentize` する。
+- **Host**: component を呼ぶ側。必要なら `wac plug` で合成してから実行。
 
 ## Examples
 
-- `examples/regex` demonstrates Rust guest + MoonBit host composition
-- Host language examples live under `examples/host/*`
+- `examples/regex` (Rust guest + MoonBit host)
+- `examples/hello` (最小の export)
+- `examples/host/*` (他言語 host)
 
 ## Gotchas
 
