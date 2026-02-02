@@ -157,3 +157,35 @@ test-integration-all: test-rust-host test-zig-host test-swift-host test-scala-ho
 # Release workflow (format, update interfaces, build JS assets, package native binary)
 release os arch: info fmt npm-build
     ./tools/dist/package.sh {{os}} {{arch}}
+
+# Update moon.mod.json version
+release-version version:
+    #!/usr/bin/env python3
+    import json
+    import sys
+
+    path = "moon.mod.json"
+    raw = sys.argv[1]
+    version = raw[1:] if raw.startswith("v") else raw
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    data["version"] = version
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=True)
+        f.write("\n")
+
+# Create git tag (vX.Y.Z)
+release-tag version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ver="{{version}}"
+    ver="${ver#v}"
+    git tag -a "v${ver}" -m "v${ver}"
+
+# Convenience: update version + tag
+release-prep version:
+    just release-version {{version}}
+    just release-tag {{version}}
