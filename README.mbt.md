@@ -21,6 +21,7 @@ export PATH="$PWD/_build/native/release/build/src/main:$PATH"
 ```
 
 Note: npm/JS build currently targets the MoonBit CLI subset (codegen). For the full legacy workflow, use the Rust CLI in `tools/moon-component`.
+Note: prebuilt macOS binaries are arm64 only. macOS x64 requires build from source.
 
 ## Quick Start
 

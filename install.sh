@@ -24,6 +24,11 @@ case "$arch" in
     ;;
  esac
 
+if [[ "$os" == "macos" && "$arch" == "x64" ]]; then
+  echo "macOS x64 is not supported. Use Apple Silicon (arm64) or build from source." >&2
+  exit 1
+fi
+
 asset="moon-component-${os}-${arch}.tar.gz"
 if [[ "$version" == "latest" ]]; then
   url="https://github.com/${repo}/releases/latest/download/${asset}"
