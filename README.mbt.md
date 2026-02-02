@@ -8,6 +8,9 @@ WebAssembly Component Model tooling for MoonBit.
 # Prebuilt binary (macOS/Linux)
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
+# npx (JS build, no install)
+npx @mizchi/moon-component
+
 # npm (JS build)
 npm i -g @mizchi/moon-component
 ```
