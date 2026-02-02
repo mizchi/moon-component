@@ -1,0 +1,9 @@
+package demo:math;
+
+interface math-api {
+  add: func(a: u32, b: u32) -> u32;
+}
+
+world math {
+  export math-api;
+}
