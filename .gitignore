@@ -17,6 +17,8 @@ examples/tests/scala-host/project/target/
 
 # Bundle output
 dist/
+!tools/dist/
+!tools/dist/package.sh
 npm/dist/
 npm/node_modules/
 
