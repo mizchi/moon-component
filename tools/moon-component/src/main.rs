@@ -18,7 +18,7 @@ struct Cli {
 enum Commands {
     /// Generate MoonBit bindings from WIT files (Guest/Host stubs)
     #[command(
-        long_about = "Generate MoonBit bindings from WIT.\n\nExamples:\n  moon-component generate wit/world.wit -o .\n  moon-component generate wit -o . --world my-world\n"
+        long_about = "Generate MoonBit bindings from WIT.\n\nOutputs:\n  gen/   generated bindings (regenerated)\n  impl/  implementation stubs (not overwritten)\n\nExamples:\n  moon-component generate wit/world.wit -o .\n  moon-component generate wit -o . --world my-world\n  moon-component generate wit/world.wit -o . --gen-dir gen --impl-dir impl\n  moon-component generate wit/world.wit -o . --no-impl\n\nAdvanced:\n  --pkg-format dsl   # emit moon.pkg instead of moon.pkg.json\n  --js-string-builtins  # enable JS string builtins (wasm-gc only)\n"
     )]
     Generate {
         /// WIT file or directory
@@ -73,7 +73,7 @@ enum Commands {
 
     /// Build the MoonBit project (core wasm / wasm-gc / native / js)
     #[command(
-        long_about = "Build the MoonBit project.\n\nExamples:\n  moon-component build --target wasm --release\n  moon-component build --target js --release\n"
+        long_about = "Build the MoonBit project.\n\nExamples:\n  moon-component build --target wasm --release\n  moon-component build --target wasm-gc --release\n  moon-component build --target native --release\n  moon-component build --target js --release\n"
     )]
     Build {
         /// Build target (wasm, wasm-gc, native, js)
@@ -104,7 +104,7 @@ enum Commands {
 
     /// Full workflow: generate + build + componentize
     #[command(
-        long_about = "One-shot workflow for WIT -> bindings -> build -> componentize.\n\nExample:\n  moon-component component wit/world.wit -o out.wasm --release\n"
+        long_about = "One-shot workflow for WIT -> bindings -> build -> componentize.\n\nExamples:\n  moon-component component wit/world.wit -o out.wasm --release\n  moon-component component wit/world.wit -o out.wasm --world my-world --target wasm-gc\n"
     )]
     Component {
         /// WIT file or directory
@@ -133,7 +133,7 @@ enum Commands {
 
     /// Output WIT resolve as JSON (for debugging)
     #[command(
-        long_about = "Resolve WIT and print the JSON graph.\n\nExample:\n  moon-component resolve-json wit/world.wit\n"
+        long_about = "Resolve WIT and print the JSON graph.\n\nExamples:\n  moon-component resolve-json wit/world.wit\n  moon-component resolve-json wit --world my-world\n"
     )]
     ResolveJson {
         /// WIT file or directory
@@ -146,7 +146,7 @@ enum Commands {
 
     /// Initialize a new MoonBit component project
     #[command(
-        long_about = "Create a new component project scaffold.\n\nExample:\n  moon-component new my-component\n"
+        long_about = "Create a new component project scaffold.\n\nExamples:\n  moon-component new my-component\n  moon-component new my-component --wit path/to/template.wit\n"
     )]
     New {
         /// Project name
@@ -159,7 +159,7 @@ enum Commands {
 
     /// Initialize component directory in existing MoonBit project
     #[command(
-        long_about = "Generate bindings and stub impl in an existing project.\n\nExample:\n  moon-component init --wit wit\n"
+        long_about = "Generate bindings and stub impl in an existing project.\n\nExamples:\n  moon-component init --wit wit\n  moon-component init --wit wit --component-dir component\n"
     )]
     Init {
         /// WIT file or directory
@@ -177,7 +177,7 @@ enum Commands {
 
     /// Fetch WIT dependencies using wkg
     #[command(
-        long_about = "Fetch WIT dependencies and update lock files.\n\nExample:\n  moon-component fetch --wit-dir wit\n"
+        long_about = "Fetch WIT dependencies and update lock files.\n\nExamples:\n  moon-component fetch --wit-dir wit\n  moon-component fetch --wit-dir wit --update\n"
     )]
     Fetch {
         /// WIT directory
@@ -195,7 +195,7 @@ enum Commands {
 
     /// Generate WIT from MoonBit exports
     #[command(
-        long_about = "Generate WIT from a MoonBit package (exports).\n\nExample:\n  moon-component wit-from-moonbit . -o wit/world.wit -n mypkg\n"
+        long_about = "Generate WIT from a MoonBit package (exports).\n\nExamples:\n  moon-component wit-from-moonbit . -o wit/world.wit -n mypkg\n  moon-component wit-from-moonbit . -o wit/world.wit -n mypkg --world my-world\n  moon-component wit-from-moonbit . -o wit/world.wit --interface exports\n  moon-component wit-from-moonbit . --check\n"
     )]
     WitFromMoonbit {
         /// MoonBit package directory (containing moon.pkg.json)
