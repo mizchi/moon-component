@@ -266,6 +266,35 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+
+    /// Verify that moon.pkg.json exports match WIT world exports
+    #[command(
+        long_about = "Check the implicit link contract between WIT and moon.pkg.json.\n\nExamples:\n  moon-component check-link wit/world.wit -o .\n  moon-component check-link wit --world my-world --pkg impl/moon.pkg.json\n"
+    )]
+    CheckLink {
+        /// WIT file or directory
+        wit_path: PathBuf,
+
+        /// Output directory (project root)
+        #[arg(short, long, default_value = ".")]
+        out_dir: PathBuf,
+
+        /// Implementation directory (default: impl)
+        #[arg(long, default_value = "impl")]
+        impl_dir: String,
+
+        /// World to select
+        #[arg(short, long)]
+        world: Option<String>,
+
+        /// moon.pkg.json path (override default lookup)
+        #[arg(long)]
+        pkg: Option<PathBuf>,
+
+        /// Verbose output
+        #[arg(long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -383,7 +412,216 @@ fn main() -> Result<()> {
                 bail!("compose: missing <wac_file> or --config");
             }
         }
+
+        Commands::CheckLink {
+            wit_path,
+            out_dir,
+            impl_dir,
+            world,
+            pkg,
+            verbose,
+        } => cmd_check_link(
+            &wit_path,
+            &out_dir,
+            &impl_dir,
+            world.as_deref(),
+            pkg.as_deref(),
+            verbose,
+        ),
     }
+}
+
+fn interface_id(pkg: Option<&wit_parser::Package>, iface_name: &str) -> String {
+    match pkg {
+        Some(p) => {
+            let base = format!("{}:{}/{}", p.name.namespace, p.name.name, iface_name);
+            match &p.name.version {
+                Some(ver) => format!("{base}@{ver}"),
+                None => base,
+            }
+        }
+        None => iface_name.to_string(),
+    }
+}
+
+fn collect_world_exports(resolve: &Resolve, world_id: wit_parser::WorldId) -> Vec<String> {
+    let mut exports = Vec::new();
+    let world = &resolve.worlds[world_id];
+
+    // Interface exports
+    for (_, item) in &world.exports {
+        if let wit_parser::WorldItem::Interface { id, .. } = item {
+            let iface = &resolve.interfaces[*id];
+            let iface_name = iface.name.as_deref().unwrap_or("unnamed");
+            let pkg = iface.package.map(|pid| &resolve.packages[pid]);
+            let iface_id = interface_id(pkg, iface_name);
+            for (_, func) in &iface.functions {
+                exports.push(format!("{iface_id}#{}", func.name));
+            }
+        }
+    }
+
+    // World-level function exports
+    let world_pkg = world.package.map(|pid| &resolve.packages[pid]);
+    let world_id_str = interface_id(world_pkg, &world.name);
+    for (_, item) in &world.exports {
+        if let wit_parser::WorldItem::Function(func) = item {
+            exports.push(format!("{world_id_str}#{}", func.name));
+        }
+    }
+
+    exports
+}
+
+fn collect_pkg_exports(pkg: &serde_json::Value) -> Result<(std::collections::HashSet<String>, std::collections::HashMap<String, std::collections::HashSet<String>>)> {
+    let mut all = std::collections::HashSet::new();
+    let mut by_target: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
+
+    let link = pkg
+        .get("link")
+        .and_then(|v| v.as_object())
+        .context("moon.pkg.json missing 'link'")?;
+
+    for target_key in ["wasm", "wasm-gc"] {
+        if let Some(target) = link.get(target_key) {
+            let exports = target
+                .get("exports")
+                .and_then(|v| v.as_array())
+                .context(format!(
+                    "moon.pkg.json missing 'link.{}.exports'",
+                    target_key
+                ))?;
+            let mut set = std::collections::HashSet::new();
+            for entry in exports {
+                if let Some(s) = entry.as_str() {
+                    if let Some((_, wit_name)) = s.split_once(':') {
+                        // WIT export names always include '#'
+                        if wit_name.contains('#') {
+                            set.insert(wit_name.to_string());
+                            all.insert(wit_name.to_string());
+                        }
+                    }
+                }
+            }
+            by_target.insert(target_key.to_string(), set);
+        }
+    }
+
+    Ok((all, by_target))
+}
+
+fn resolve_pkg_path(out_dir: &Path, impl_dir: &str, pkg: Option<&Path>) -> Result<PathBuf> {
+    if let Some(p) = pkg {
+        return Ok(p.to_path_buf());
+    }
+    let default_impl = out_dir.join(impl_dir).join("moon.pkg.json");
+    if default_impl.exists() {
+        return Ok(default_impl);
+    }
+    let fallback_src = out_dir.join("src").join("moon.pkg.json");
+    if fallback_src.exists() {
+        eprintln!(
+            "[WARN] using {} (impl/moon.pkg.json not found)",
+            fallback_src.display()
+        );
+        return Ok(fallback_src);
+    }
+    let fallback_root = out_dir.join("moon.pkg.json");
+    if fallback_root.exists() {
+        eprintln!(
+            "[WARN] using {} (impl/moon.pkg.json not found)",
+            fallback_root.display()
+        );
+        return Ok(fallback_root);
+    }
+    bail!(
+        "moon.pkg.json not found (looked in {}/{} and fallbacks). Use --pkg to specify.",
+        out_dir.display(),
+        impl_dir
+    );
+}
+
+fn cmd_check_link(
+    wit_path: &Path,
+    out_dir: &Path,
+    impl_dir: &str,
+    world: Option<&str>,
+    pkg: Option<&Path>,
+    verbose: bool,
+) -> Result<()> {
+    eprintln!("Parsing WIT: {}", wit_path.display());
+    let (resolve, world_id) = parse_wit(wit_path, world)?;
+
+    let expected: std::collections::HashSet<String> =
+        collect_world_exports(&resolve, world_id).into_iter().collect();
+
+    if expected.is_empty() {
+        bail!("no exports found in WIT world");
+    }
+
+    let pkg_path = resolve_pkg_path(out_dir, impl_dir, pkg)?;
+    let pkg_str = std::fs::read_to_string(&pkg_path)
+        .with_context(|| format!("failed to read {}", pkg_path.display()))?;
+    let pkg_json: serde_json::Value = serde_json::from_str(&pkg_str)
+        .with_context(|| format!("failed to parse {}", pkg_path.display()))?;
+
+    let (found, by_target) = collect_pkg_exports(&pkg_json)?;
+    if found.is_empty() {
+        bail!(
+            "no link exports found in {} (expected WIT export mappings)",
+            pkg_path.display()
+        );
+    }
+
+    let mut missing: Vec<String> = expected.difference(&found).cloned().collect();
+    let mut extra: Vec<String> = found.difference(&expected).cloned().collect();
+    missing.sort();
+    extra.sort();
+
+    let mut target_mismatch = false;
+    if by_target.len() > 1 {
+        let mut iter = by_target.values();
+        if let Some(first) = iter.next() {
+            for set in iter {
+                if set != first {
+                    target_mismatch = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if missing.is_empty() && extra.is_empty() && !target_mismatch {
+        println!("OK: moon.pkg.json exports match WIT world");
+        return Ok(());
+    }
+
+    eprintln!("check-link: moon.pkg.json exports mismatch with WIT");
+    if !missing.is_empty() {
+        eprintln!("Missing exports in moon.pkg.json:");
+        for item in &missing {
+            eprintln!("  - {}", item);
+        }
+    }
+    if !extra.is_empty() {
+        eprintln!("Extra exports in moon.pkg.json:");
+        for item in &extra {
+            eprintln!("  - {}", item);
+        }
+    }
+    if target_mismatch {
+        eprintln!("Mismatch between link.wasm.exports and link.wasm-gc.exports");
+        if verbose {
+            for (k, set) in &by_target {
+                let mut items: Vec<_> = set.iter().cloned().collect();
+                items.sort();
+                eprintln!("  [{}] {}", k, items.join(", "));
+            }
+        }
+    }
+
+    bail!("check-link failed");
 }
 
 fn parse_wit(wit_path: &Path, world: Option<&str>) -> Result<(Resolve, wit_parser::WorldId)> {
@@ -1197,6 +1435,77 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
         false, // js_string_builtins (TODO: add to Init command)
     )?;
 
+    // Create justfile (skip if exists, but suggest changes)
+    let justfile_path = comp_dir.join("justfile");
+    if !justfile_path.exists() {
+        let justfile = r#"# Component
+# Usage: just <command>
+
+default:
+    @just --list
+
+generate:
+    moon-component generate wit/world.wit -o .
+
+build: generate
+    if [ -d impl ]; then moon build --target wasm --release impl; else moon build --target wasm --release; fi
+
+componentize: build
+    if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
+
+run: componentize
+    wasmtime run component.wasm
+
+clean:
+    rm -rf _build component.wasm gen impl
+"#;
+        std::fs::write(&justfile_path, justfile)?;
+        eprintln!("Created: {}/justfile", component_dir);
+    } else {
+        eprintln!("Skipped: {}/justfile (already exists)", component_dir);
+        let existing = std::fs::read_to_string(&justfile_path)
+            .with_context(|| format!("failed to read {}", justfile_path.display()))?;
+        let template = default_component_justfile();
+        let existing_blocks = parse_justfile_blocks(&existing);
+        let template_blocks = parse_justfile_blocks(template);
+        let mut missing: Vec<String> = Vec::new();
+        let mut different: Vec<String> = Vec::new();
+
+        for (name, tpl_block) in &template_blocks {
+            match existing_blocks.get(name) {
+                None => missing.push(name.clone()),
+                Some(cur_block) => {
+                    if normalize_just_block(cur_block) != normalize_just_block(tpl_block) {
+                        different.push(name.clone());
+                    }
+                }
+            }
+        }
+
+        if missing.is_empty() && different.is_empty() {
+            eprintln!("Justfile is up to date with the default template.");
+        } else {
+            if !missing.is_empty() {
+                missing.sort();
+                eprintln!("Missing just recipes: {}", missing.join(", "));
+            }
+            if !different.is_empty() {
+                different.sort();
+                eprintln!("Different just recipes: {}", different.join(", "));
+            }
+            eprintln!("\nSuggested justfile updates (manual merge):");
+            let mut names: Vec<String> = missing;
+            names.extend(different);
+            names.sort();
+            names.dedup();
+            for name in names {
+                if let Some(block) = template_blocks.get(&name) {
+                    eprintln!("---\n{}", block);
+                }
+            }
+        }
+    }
+
     eprintln!("\n✅ Component initialized!");
     eprintln!("\nStructure:");
     eprintln!("  {}/", component_dir);
@@ -1214,6 +1523,70 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
     eprintln!("  3. moon-component componentize (in {}/)", component_dir);
 
     Ok(())
+}
+
+fn default_component_justfile() -> &'static str {
+    r#"# Component
+# Usage: just <command>
+
+default:
+    @just --list
+
+generate:
+    moon-component generate wit/world.wit -o .
+
+build: generate
+    if [ -d impl ]; then moon build --target wasm --release impl; else moon build --target wasm --release; fi
+
+componentize: build
+    if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
+
+run: componentize
+    wasmtime run component.wasm
+
+clean:
+    rm -rf _build component.wasm gen impl
+"#
+}
+
+fn parse_justfile_blocks(contents: &str) -> std::collections::HashMap<String, String> {
+    let mut blocks: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let re = regex::Regex::new(r"(?m)^@?([A-Za-z0-9_.-]+):").unwrap();
+    let mut indices: Vec<(usize, String)> = Vec::new();
+
+    for cap in re.captures_iter(contents) {
+        if let Some(m) = cap.get(0) {
+            let name = cap.get(1).unwrap().as_str().to_string();
+            indices.push((m.start(), name));
+        }
+    }
+
+    if indices.is_empty() {
+        return blocks;
+    }
+
+    indices.sort_by_key(|(idx, _)| *idx);
+    for i in 0..indices.len() {
+        let (start, name) = &indices[i];
+        let end = if i + 1 < indices.len() {
+            indices[i + 1].0
+        } else {
+            contents.len()
+        };
+        let block = contents[*start..end].trim_end().to_string();
+        blocks.insert(name.clone(), block);
+    }
+    blocks
+}
+
+fn normalize_just_block(block: &str) -> String {
+    block
+        .lines()
+        .map(|line| line.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
 }
 
 fn cmd_fetch(wit_dir: &Path, output_type: &str, update: bool) -> Result<()> {
