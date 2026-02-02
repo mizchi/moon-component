@@ -230,21 +230,6 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
-
-    /// Bundle components from workspace config
-    Bundle {
-        /// Config file path
-        #[arg(short, long, default_value = "moon-component.toml")]
-        config: PathBuf,
-
-        /// Only build, don't compose
-        #[arg(long)]
-        build_only: bool,
-
-        /// Show generated WAC without executing
-        #[arg(long)]
-        dry_run: bool,
-    },
 }
 
 fn main() -> Result<()> {
@@ -362,12 +347,6 @@ fn main() -> Result<()> {
                 bail!("compose: missing <wac_file> or --config");
             }
         }
-
-        Commands::Bundle {
-            config,
-            build_only,
-            dry_run,
-        } => cmd_bundle(&config, build_only, dry_run),
     }
 }
 
