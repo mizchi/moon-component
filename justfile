@@ -92,7 +92,7 @@ build-rust-guest:
 
 # Test rust-guest with rust-host
 test-rust-guest: build-rust-guest
-    cargo run --release --manifest-path examples/tests/rust-host/Cargo.toml -- types examples/tests/rust-guest/rust-guest.component.wasm
+    cargo run --release --manifest-path examples/host/rust/Cargo.toml -- types examples/tests/rust-guest/rust-guest.component.wasm
 
 # Build zig-guest (Zig implementation using C bindings)
 build-zig-guest:
@@ -103,44 +103,44 @@ build-zig-guest:
 
 # Test zig-guest with rust-host
 test-zig-guest: build-zig-guest
-    cargo run --release --manifest-path examples/tests/rust-host/Cargo.toml -- types examples/tests/zig-guest/zig-guest.component.wasm
+    cargo run --release --manifest-path examples/host/rust/Cargo.toml -- types examples/tests/zig-guest/zig-guest.component.wasm
 
 # Run Rust host tests
 test-rust-host test_type="types":
-    cd examples/tests/rust-host && cargo run --release -- {{test_type}}
+    cd examples/host/rust && cargo run --release -- {{test_type}}
 
 # Build Zig host
 build-zig-host:
-    cd examples/tests/zig-host && zig build
+    cd examples/host/zig && zig build
 
 # Run Zig host tests (requires types-test wasm to be built)
 test-zig-host: example-types-test build-zig-host
-    cd examples/tests/zig-host && zig build run
+    cd examples/host/zig && zig build run
 
 # Build Swift host (requires Swift 5.9+ and macOS 14+)
 build-swift-host:
-    swift build --package-path examples/tests/swift-host
+    swift build --package-path examples/host/swift
 
 # Run Swift host tests (requires types-test wasm to be built)
 test-swift-host: example-types-test build-swift-host
-    examples/tests/swift-host/.build/debug/SwiftHost examples/tests/types-test/_build/wasm/release/build/src/src.wasm
+    examples/host/swift/.build/debug/SwiftHost examples/tests/types-test/_build/wasm/release/build/src/src.wasm
 
 # Build Scala host (requires JDK 11+ and sbt)
 build-scala-host:
-    cd examples/tests/scala-host && sbt compile
+    cd examples/host/scala && sbt compile
 
 # Run Scala host tests (requires types-test wasm to be built)
 test-scala-host: example-types-test
-    cd examples/tests/scala-host && sbt "run ../types-test/_build/wasm/release/build/src/src.wasm"
+    cd examples/host/scala && sbt "run ../../tests/types-test/_build/wasm/release/build/src/src.wasm"
 
 # Build jco host (transpile component to JS)
 build-jco-host:
-    pnpm --dir examples/tests/jco-host install
-    pnpm --dir examples/tests/jco-host run transpile
+    pnpm --dir examples/host/jco install
+    pnpm --dir examples/host/jco run transpile
 
 # Run jco host tests (requires types-test component)
 test-jco-host: build-jco-host
-    pnpm --dir examples/tests/jco-host run test
+    pnpm --dir examples/host/jco run test
 
 # Run all integration tests
 test-integration: test-rust-host test-zig-host test-swift-host

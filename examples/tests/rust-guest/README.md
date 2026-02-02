@@ -37,11 +37,11 @@ cargo component build --release
 
 ```bash
 # Test with Rust host
-cd ../rust-host
+cd ../host/rust
 cargo run --release -- types --wasm ../rust-guest/target/wasm32-wasip1/release/rust_guest.wasm
 
 # Test with Swift host (core wasm only)
-cd ../swift-host
+cd ../host/swift
 swift run SwiftHost ../rust-guest/target/wasm32-wasip1/release/rust_guest.wasm
 ```
 

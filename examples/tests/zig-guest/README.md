@@ -33,8 +33,8 @@ wasm-tools component new zig-out/bin/zig-guest.wasm \
 ## Test
 
 ```bash
-# Test with rust-host (requires WASI support)
-cargo run --release --manifest-path ../rust-host/Cargo.toml -- types zig-guest.component.wasm
+# Test with rust host (requires WASI support)
+cargo run --release --manifest-path ../host/rust/Cargo.toml -- types zig-guest.component.wasm
 ```
 
 ## Key Implementation Notes

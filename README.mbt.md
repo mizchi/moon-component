@@ -359,11 +359,11 @@ Host implementations for testing generated WebAssembly modules:
 
 | Host | Language | Test Level | Notes |
 |------|----------|------------|-------|
-| `examples/tests/rust-host` | Rust | Component | Full canonical ABI testing via wasmtime |
-| `examples/tests/swift-host` | Swift | Core Wasm | Runtime testing via WasmKit (macOS 14+) |
-| `examples/tests/scala-host` | Scala | Core Wasm | Runtime testing via Chicory (JDK 11+) |
-| `examples/tests/zig-host` | Zig | Core Wasm | Binary format validation (export verification) |
-| `examples/tests/jco-host` | JavaScript | Component | Node.js testing via jco transpiler |
+| `examples/host/rust` | Rust | Component | Full canonical ABI testing via wasmtime |
+| `examples/host/swift` | Swift | Core Wasm | Runtime testing via WasmKit (macOS 14+) |
+| `examples/host/scala` | Scala | Core Wasm | Runtime testing via Chicory (JDK 11+) |
+| `examples/host/zig` | Zig | Core Wasm | Binary format validation (export verification) |
+| `examples/host/jco` | JavaScript | Component | Node.js testing via jco transpiler |
 
 ```bash
 # Run all integration tests (Rust, Zig, Swift)

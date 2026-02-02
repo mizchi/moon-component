@@ -6,8 +6,8 @@ target
 .moonagent/
 
 # Test host build artifacts
-examples/tests/jco-host/node_modules/
-examples/tests/swift-host/.build/
+examples/host/jco/node_modules/
+examples/host/swift/.build/
 examples/tests/zig-guest/.zig-cache/
 examples/tests/scala-host/target/
 examples/tests/scala-host/project/target/

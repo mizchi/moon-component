@@ -1,0 +1,13 @@
+{
+  "name": "jco-host",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "transpile": "jco transpile ../../tests/types-test/types-test.component.wasm -o src/gen --name types-test",
+    "test": "node src/test.js",
+    "build-and-test": "npm run transpile && npm run test"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "^1.8.0"
+  }
+}
