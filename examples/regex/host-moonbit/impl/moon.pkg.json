@@ -1,0 +1,23 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "regex-host/gen/cabi", "alias": "cabi" },
+    { "path": "regex-host/gen/interface/local/regex/regex", "alias": "regex" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:local:regex/app#run"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:local:regex/app#run"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+package local:regex;
+
+interface regex {
+  is-match: func(pattern: string, text: string) -> bool;
+  replace: func(pattern: string, text: string, replacement: string) -> string;
+}
+
+world regex-app {
+  export regex;
+}

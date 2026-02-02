@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "regex-host/gen/cabi", "alias": "cabi" }
+  ]
+}
