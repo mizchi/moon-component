@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: moonbit-community/setup-moonbit@v1
+      - uses: moonbit-community/setup-moonbit@main
       - run: ./tools/dist/package.sh ${{ matrix.asset_os }} ${{ matrix.asset_arch }}
       - uses: actions/upload-artifact@v4
         with:
