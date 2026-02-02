@@ -244,7 +244,7 @@ enum Commands {
 
     /// Compose components using a config or compose file
     #[command(
-        long_about = "Preferred entry: compose via config.\n\nExamples:\n  moon-component compose -c moon-component.toml\n  moon-component compose composition.wac -o composed.wasm\n"
+        long_about = "Preferred entry: compose via config.\n\nConfig example (moon-component.toml):\n  [bundle]\n  name = \"my/app\"\n  output = \"dist/app.wasm\"\n  entry = \"apps/main/component\"\n\n  [dependencies]\n  \"example:math\" = { path = \"libs/math/component\" }\n  \"local:regex/regex\" = { component = \"path/to/regex_guest.wasm\" }\n\n  [build]\n  target = \"wasm\"\n  release = true\n\nExamples:\n  moon-component compose -c moon-component.toml\n  moon-component compose -c moon-component.toml --build-only\n  moon-component compose -c moon-component.toml --dry-run\n  moon-component compose composition.wac -o composed.wasm\n"
     )]
     Compose {
         /// WAC source file
