@@ -16,12 +16,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate MoonBit bindings from WIT files
+    /// Generate MoonBit bindings from WIT files (Guest/Host stubs)
+    #[command(
+        long_about = "Generate MoonBit bindings from WIT.\n\nExamples:\n  moon-component generate wit/world.wit -o .\n  moon-component generate wit -o . --world my-world\n"
+    )]
     Generate {
         /// WIT file or directory
+        ///
+        /// Example: wit/world.wit
         wit_path: PathBuf,
 
         /// Output directory
+        ///
+        /// Default: .
         #[arg(short, long, default_value = ".")]
         out_dir: PathBuf,
 
@@ -29,11 +36,13 @@ enum Commands {
         #[arg(short, long)]
         project_name: Option<String>,
 
-        /// Generated code directory
+        /// Generated code directory (regenerated)
         #[arg(long, default_value = "gen")]
         gen_dir: String,
 
         /// Implementation directory
+        ///
+        /// Stubs are written here (not overwritten).
         #[arg(long, default_value = "impl")]
         impl_dir: String,
 
@@ -62,7 +71,10 @@ enum Commands {
         js_string_builtins: bool,
     },
 
-    /// Build the MoonBit project
+    /// Build the MoonBit project (core wasm / wasm-gc / native / js)
+    #[command(
+        long_about = "Build the MoonBit project.\n\nExamples:\n  moon-component build --target wasm --release\n  moon-component build --target js --release\n"
+    )]
     Build {
         /// Build target (wasm, wasm-gc, native, js)
         #[arg(short, long, default_value = "wasm")]
@@ -73,7 +85,10 @@ enum Commands {
         release: bool,
     },
 
-    /// Create a WASM component from built wasm
+    /// Create a WebAssembly component from a built core wasm module
+    #[command(
+        long_about = "Componentize a core wasm using a WIT directory.\n\nExample:\n  moon-component componentize _build/wasm/release/build/impl/impl.wasm \\\n    --wit-dir wit -o component.wasm\n"
+    )]
     Componentize {
         /// Input wasm file
         wasm_file: PathBuf,
@@ -88,6 +103,9 @@ enum Commands {
     },
 
     /// Full workflow: generate + build + componentize
+    #[command(
+        long_about = "One-shot workflow for WIT -> bindings -> build -> componentize.\n\nExample:\n  moon-component component wit/world.wit -o out.wasm --release\n"
+    )]
     Component {
         /// WIT file or directory
         wit_path: PathBuf,
@@ -114,6 +132,9 @@ enum Commands {
     },
 
     /// Output WIT resolve as JSON (for debugging)
+    #[command(
+        long_about = "Resolve WIT and print the JSON graph.\n\nExample:\n  moon-component resolve-json wit/world.wit\n"
+    )]
     ResolveJson {
         /// WIT file or directory
         wit_path: PathBuf,
@@ -124,6 +145,9 @@ enum Commands {
     },
 
     /// Initialize a new MoonBit component project
+    #[command(
+        long_about = "Create a new component project scaffold.\n\nExample:\n  moon-component new my-component\n"
+    )]
     New {
         /// Project name
         name: String,
@@ -134,6 +158,9 @@ enum Commands {
     },
 
     /// Initialize component directory in existing MoonBit project
+    #[command(
+        long_about = "Generate bindings and stub impl in an existing project.\n\nExample:\n  moon-component init --wit wit\n"
+    )]
     Init {
         /// WIT file or directory
         #[arg(short, long, default_value = "wit")]
@@ -149,6 +176,9 @@ enum Commands {
     },
 
     /// Fetch WIT dependencies using wkg
+    #[command(
+        long_about = "Fetch WIT dependencies and update lock files.\n\nExample:\n  moon-component fetch --wit-dir wit\n"
+    )]
     Fetch {
         /// WIT directory
         #[arg(short, long, default_value = "wit")]
@@ -164,6 +194,9 @@ enum Commands {
     },
 
     /// Generate WIT from MoonBit exports
+    #[command(
+        long_about = "Generate WIT from a MoonBit package (exports).\n\nExample:\n  moon-component wit-from-moonbit . -o wit/world.wit -n mypkg\n"
+    )]
     WitFromMoonbit {
         /// MoonBit package directory (containing moon.pkg.json)
         #[arg(default_value = ".")]
@@ -209,7 +242,10 @@ enum Commands {
         output: PathBuf,
     },
 
-    /// Compose components using a config or WAC file
+    /// Compose components using a config or compose file
+    #[command(
+        long_about = "Preferred entry: compose via config.\n\nExamples:\n  moon-component compose -c moon-component.toml\n  moon-component compose composition.wac -o composed.wasm\n"
+    )]
     Compose {
         /// WAC source file
         wac_file: Option<PathBuf>,
