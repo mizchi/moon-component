@@ -7,25 +7,6 @@ description: How to use the moon-component CLI (MoonBit WIT/component workflow).
 
 Use this skill when you need to **use the moon-component CLI** to build or compose WebAssembly Components from WIT + MoonBit.
 
-## Install
-
-```bash
-# Prebuilt binary (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
-
-# npx (no install)
-npx @mizchi/moon-component
-
-# npm
-npm i -g @mizchi/moon-component
-```
-
-If you need `bundle/plug/compose`, install `wac`:
-
-```bash
-cargo install wac-cli
-```
-
 ## Common Commands (CLI)
 
 ```bash
@@ -43,14 +24,17 @@ moon-component componentize _build/wasm/release/build/impl/impl.wasm \
 moon-component component wit/world.wit -o impl.component.wasm --release
 ```
 
-## Compose Components (wac)
+## Compose Components
 
 ```bash
-wac plug \
+moon-component plug \
   --plug dep-a.component.wasm \
   --plug dep-b.component.wasm \
   app.component.wasm \
   -o composed.component.wasm
+
+# or use a config file
+moon-component compose -c moon-component.toml
 ```
 
 ## Guest / Host
