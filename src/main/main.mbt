@@ -147,30 +147,31 @@ fn main {
     } else {
       true
     }
+    let display_path = display_path_for(file.path, out_dir)
     if should_write {
       if out_dir is Some(_) {
         // Write to file
         write_file(file.path, file.content)
         if file.is_stub {
-          println("[STUB] " + file.path)
+          println("[STUB] " + display_path)
           stub_count = stub_count + 1
         } else {
-          println(file.path)
+          println(display_path)
           gen_count = gen_count + 1
         }
       } else {
         // Print to stdout
         if file.is_stub {
-          println("=== [STUB] " + file.path + " ===")
+          println("=== [STUB] " + display_path + " ===")
           stub_count = stub_count + 1
         } else {
-          println("=== " + file.path + " ===")
+          println("=== " + display_path + " ===")
           gen_count = gen_count + 1
         }
         println(file.content)
       }
     } else {
-      println("[SKIP] " + file.path + " (already exists)")
+      println("[SKIP] " + display_path + " (already exists)")
       skip_count = skip_count + 1
     }
   }
@@ -184,6 +185,89 @@ fn main {
   } else {
     println(msg)
   }
+}
+
+///|
+fn display_path_for(path : String, out_dir : String?) -> String {
+  let norm_path = normalize_path(path)
+  match out_dir {
+    Some(out) => {
+      let norm_out = normalize_path(out)
+      let prefix = if norm_out == "/" { "/" } else { norm_out + "/" }
+      if norm_path.has_prefix(prefix) {
+        let rel = strip_prefix(norm_path, norm_out)
+        if rel.length() == 0 {
+          "."
+        } else {
+          rel
+        }
+      } else if norm_path == norm_out {
+        "."
+      } else {
+        norm_path
+      }
+    }
+    None => norm_path
+  }
+}
+
+///|
+fn normalize_path(path : String) -> String {
+  let parts : Array[String] = path
+    .split("/")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
+  let chars : Array[Char] = path.to_array()
+  let is_abs = path.length() > 0 && chars[0] == '/'
+  let cleaned : Array[String] = []
+  for part in parts {
+    if part.length() == 0 {
+      continue
+    }
+    if part == "." {
+      continue
+    }
+    cleaned.push(part)
+  }
+  if cleaned.length() == 0 {
+    if is_abs {
+      "/"
+    } else {
+      "."
+    }
+  } else {
+    let sb = StringBuilder::new()
+    if is_abs {
+      sb.write_string("/")
+    }
+    for i, part in cleaned {
+      if i > 0 {
+        sb.write_string("/")
+      }
+      sb.write_string(part)
+    }
+    sb.to_string()
+  }
+}
+
+///|
+fn strip_prefix(path : String, prefix : String) -> String {
+  if prefix.length() == 0 {
+    return path
+  }
+  if not(path.has_prefix(prefix)) {
+    return path
+  }
+  let chars : Array[Char] = path.to_array()
+  let mut i = prefix.length()
+  if i < chars.length() && chars[i] == '/' {
+    i = i + 1
+  }
+  let sb = StringBuilder::new()
+  for j = i; j < chars.length(); j = j + 1 {
+    sb.write_char(chars[j])
+  }
+  sb.to_string()
 }
 
 ///|

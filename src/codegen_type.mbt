@@ -22,6 +22,15 @@ fn Generator::type_size(self : Generator, ty : @resolve.Type) -> Int {
           }
           size
         }
+        Tuple(types) => {
+          let mut size = 0
+          for t in types {
+            let align = self.type_align(t)
+            size = (size + align - 1) & -align
+            size = size + self.type_size(t)
+          }
+          size
+        }
         Variant(cases) => {
           // discriminant (4 bytes) + max payload size
           let mut max_payload = 0
@@ -71,6 +80,16 @@ fn Generator::type_align(self : Generator, ty : @resolve.Type) -> Int {
           let mut max_align = 1
           for field in fields {
             let align = self.type_align(field.field_type)
+            if align > max_align {
+              max_align = align
+            }
+          }
+          max_align
+        }
+        Tuple(types) => {
+          let mut max_align = 1
+          for t in types {
+            let align = self.type_align(t)
             if align > max_align {
               max_align = align
             }
@@ -163,6 +182,29 @@ fn Generator::generate_list_elem_lift(
           }
           sb.write_string(" } : ")
           sb.write_string(type_name)
+          sb.write_string(")")
+          sb.to_string()
+        }
+        Tuple(types) => {
+          let sb = StringBuilder::new()
+          sb.write_string("(")
+          for i, t in types {
+            if i > 0 {
+              sb.write_string(", ")
+            }
+            let mut elem_offset = 0
+            for j = 0; j < i; j = j + 1 {
+              let prev_align = self.type_align(types[j])
+              elem_offset = (elem_offset + prev_align - 1) & -prev_align
+              elem_offset = elem_offset + self.type_size(types[j])
+            }
+            sb.write_string(
+              self.generate_list_elem_lift(
+                t,
+                ptr_var + " + " + elem_offset.to_string(),
+              ),
+            )
+          }
           sb.write_string(")")
           sb.to_string()
         }

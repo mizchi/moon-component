@@ -147,8 +147,7 @@ fn Generator::generate_ffi_export(
   let func_name = "wasmExport" + export_name
   // Build WIT export name for moon.pkg.json
   let wit_export_name = match pkg {
-    Some(p) =>
-      p.name.ns + ":" + p.name.name + "/" + iface_name + "#" + func.name
+    Some(p) => self.interface_id(p, iface_name) + "#" + func.name
     None => iface_name + "#" + func.name
   }
   sb.write_string("pub fn ")
@@ -201,6 +200,11 @@ fn Generator::generate_ffi_export(
     let safe_name = if snake_name == "self" { "handle" } else { snake_name }
     call_args.push(self.lifted_param_name(safe_name, ptype))
   }
+  // Special-case result<unit, unit> to return discriminant directly
+  let unit_result = match func.result {
+    Some(ty) => self.is_unit_result(ty)
+    None => false
+  }
   if returns_indirect {
     // Complex return: allocate result structure and return pointer
     sb.write_string("  let result = ")
@@ -209,6 +213,17 @@ fn Generator::generate_ffi_export(
     sb.write_string(call_args.join(", "))
     sb.write_string(")\n")
     self.generate_result_lower_indirect(sb, func.result)
+  } else if unit_result {
+    // result<unit, unit> -> return discriminant directly
+    sb.write_string("  let result = ")
+    sb.write_string(normalized_name)
+    sb.write_string("(")
+    sb.write_string(call_args.join(", "))
+    sb.write_string(")\n")
+    sb.write_string("  match result {\n")
+    sb.write_string("    Ok(_) => 0\n")
+    sb.write_string("    Err(_) => 1\n")
+    sb.write_string("  }\n")
   } else {
     // Simple return
     let result_conv = self.ffi_to_type_conv(func.result)
@@ -259,6 +274,25 @@ fn Generator::type_to_ffi_params(
 
 ///|
 /// Check if return type needs multi-value return (via retptr)
+fn Generator::is_unit_result(self : Generator, ty : @resolve.Type) -> Bool {
+  match ty {
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        Result(ok~, err~) =>
+          match (ok, err) {
+            (None, None) => true
+            _ => false
+          }
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+/// Check if return type needs multi-value return (via retptr)
 fn Generator::type_returns_multivalue(
   self : Generator,
   result : @resolve.Type?,
@@ -271,11 +305,12 @@ fn Generator::type_returns_multivalue(
         Id(id) => {
           let typedef = self.resolve.types[id]
           match typedef.kind {
-            List(_)
-            | Record(_)
-            | Variant(_)
-            | Result(ok=_, err=_)
-            | Option(_) => true
+            List(_) | Record(_) | Variant(_) | Option(_) => true
+            Result(ok~, err~) =>
+              match (ok, err) {
+                (None, None) => false
+                _ => true
+              }
             // Flags can fit in a single i32, no need for retptr
             Flags(_) | Enum(_) => false
             _ => false

@@ -1,0 +1,31 @@
+# examples/regex
+# Usage: just <command>
+
+default:
+    @just --list
+
+gen-host:
+    cd host-moonbit && moon-component generate wit/world.wit -o . > .gen.log
+    @echo "Generated bindings (log: host-moonbit/.gen.log)"
+
+gen-host-verbose:
+    cd host-moonbit && moon-component generate wit/world.wit -o .
+
+build-guest:
+    cd guest-rust && cargo component build --release --target wasm32-wasip1
+
+build-host: gen-host
+    cd host-moonbit && moon build --target wasm --release impl
+
+componentize-host: build-host
+    cd host-moonbit && moon-component componentize _build/wasm/release/build/impl/impl.wasm \
+        --wit-dir wit -o host.component.wasm
+
+compose: build-guest componentize-host
+    moon-component compose -c moon-component.toml
+
+run: compose
+    wasmtime run --invoke 'run("[a-z]+", "hello 123", "X")' dist/regex-app.wasm
+
+clean:
+    rm -rf _build dist host-moonbit/_build host-moonbit/host.component.wasm

@@ -9,7 +9,7 @@ fn Generator::generate_interface_import(self : Generator, id : Int) -> Unit {
 
   // Build import module name: namespace:package/interface
   let import_module = match pkg {
-    Some(p) => p.name.ns + ":" + p.name.name + "/" + iface_name
+    Some(p) => self.interface_id(p, iface_name)
     None => iface_name
   }
   let sb = StringBuilder::new()
@@ -102,7 +102,7 @@ fn Generator::generate_world_function_imports(
   let import_module = match world.pkg {
     Some(pkg_id) => {
       let pkg = self.resolve.packages[pkg_id]
-      pkg.name.ns + ":" + pkg.name.name + "/" + world.name
+      self.interface_id(pkg, world.name)
     }
     None => world.name
   }

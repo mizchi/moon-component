@@ -167,22 +167,7 @@ release-local version:
     ver="{{version}}"
     ver="${ver#v}"
 
-    python3 - "$ver" <<'PY'
-import json
-import sys
-
-path = "moon.mod.json"
-version = sys.argv[1]
-
-with open(path, "r", encoding="utf-8") as f:
-    data = json.load(f)
-
-data["version"] = version
-
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=True)
-    f.write("\n")
-PY
+    python3 - "$ver" -c 'import json,sys; path="moon.mod.json"; version=sys.argv[1]; data=json.load(open(path,"r",encoding="utf-8")); data["version"]=version; f=open(path,"w",encoding="utf-8"); json.dump(data,f,indent=2,ensure_ascii=True); f.write("\\n"); f.close()'
 
     moon info
     moon fmt

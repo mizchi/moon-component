@@ -188,6 +188,19 @@ fn Generator::cabi_import_path(self : Generator) -> String {
 }
 
 ///|
+fn Generator::interface_id(
+  _self : Generator,
+  pkg : @resolve.Package,
+  iface_name : String,
+) -> String {
+  let base = pkg.name.ns + ":" + pkg.name.name + "/" + iface_name
+  match pkg.name.version {
+    Some(ver) => base + "@" + ver
+    None => base
+  }
+}
+
+///|
 fn Generator::interface_path(
   self : Generator,
   id : Int,

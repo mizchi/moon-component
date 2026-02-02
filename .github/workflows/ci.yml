@@ -1,0 +1,19 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  wasi-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: moonbit-community/setup-moonbit@main
+      - uses: dtolnay/rust-toolchain@stable
+      - run: moon update
+      - run: cargo build --manifest-path tools/moon-component/Cargo.toml
+      - run: cargo run --quiet --manifest-path tools/moon-component/Cargo.toml -- generate examples/wasi-cli/wit/world.wit -o examples/wasi-cli
+      - run: moon build --target wasm --release impl
+        working-directory: examples/wasi-cli
+      - run: cargo run --quiet --manifest-path tools/moon-component/Cargo.toml -- componentize examples/wasi-cli/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/wasi-cli/wit -o /tmp/wasi-cli.component.wasm

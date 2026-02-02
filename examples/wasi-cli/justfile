@@ -1,0 +1,31 @@
+# examples/wasi-cli
+# Usage: just <command>
+
+default:
+    @just --list
+
+generate:
+    moon-component generate wit/world.wit -o . > .gen.log
+    @echo "Generated bindings (log: .gen.log)"
+
+generate-verbose:
+    moon-component generate wit/world.wit -o .
+
+build: generate
+    moon build --target wasm --release impl
+
+componentize: build
+    moon-component componentize _build/wasm/release/build/impl/impl.wasm \
+        --wit-dir wit -o component.wasm
+
+run: componentize
+    wasmtime run component.wasm -- ok
+
+run-noargs: componentize
+    -wasmtime run component.wasm
+
+run-args *args: componentize
+    wasmtime run component.wasm -- {{args}}
+
+clean:
+    rm -rf _build component.wasm

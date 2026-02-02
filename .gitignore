@@ -4,6 +4,10 @@ target/
 target
 .mooncakes/
 .moonagent/
+gen/
+.gen.log
+component.wasm
+host.component.wasm
 
 # Test host build artifacts
 examples/host/jco/node_modules/

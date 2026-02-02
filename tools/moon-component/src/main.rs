@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasm_encoder::Section;
-use wit_parser::{Resolve, UnresolvedPackageGroup};
+use wit_parser::Resolve;
 
 #[derive(Parser)]
 #[command(name = "moon-component")]
@@ -397,30 +397,16 @@ fn parse_wit(wit_path: &Path, world: Option<&str>) -> Result<(Resolve, wit_parse
         wit_path.parent().unwrap_or(Path::new(".")).to_path_buf()
     };
 
-    // Load deps first (if exists)
-    let deps_dir = wit_dir.join("deps");
-    if deps_dir.exists() && deps_dir.is_dir() {
-        for entry in std::fs::read_dir(&deps_dir)? {
-            let entry = entry?;
-            let dep_path = entry.path();
-            if dep_path.is_dir() {
-                // Each subdirectory in deps/ is a package
-                let pkg = UnresolvedPackageGroup::parse_dir(&dep_path)
-                    .with_context(|| format!("failed to parse dep: {}", dep_path.display()))?;
-                resolve.push_group(pkg)?;
-            }
-        }
-    }
-
-    // Then load the main package
+    // Load the main package (and deps if present)
     let pkg_id = if wit_path.is_dir() {
-        let pkg = UnresolvedPackageGroup::parse_dir(wit_path)
-            .with_context(|| format!("failed to parse WIT directory: {}", wit_path.display()))?;
-        resolve.push_group(pkg)?
+        resolve.push_dir(wit_path)?.0
     } else {
-        let pkg = UnresolvedPackageGroup::parse_file(wit_path)
-            .with_context(|| format!("failed to parse WIT file: {}", wit_path.display()))?;
-        resolve.push_group(pkg)?
+        let deps_dir = wit_dir.join("deps");
+        if deps_dir.exists() && deps_dir.is_dir() {
+            resolve.push_dir(&wit_dir)?.0
+        } else {
+            resolve.push_file(wit_path)?
+        }
     };
 
     // Find world
@@ -583,29 +569,18 @@ fn cmd_componentize(wasm_file: &Path, wit_dir: &Path, output: &Path) -> Result<(
     let wasm_bytes = std::fs::read(wasm_file)
         .with_context(|| format!("failed to read wasm file: {}", wasm_file.display()))?;
 
-    // Parse WIT with deps first (needed for ABI fix)
+    // Parse WIT with deps (needed for ABI fix)
     let mut resolve = Resolve::default();
-
-    // First, load deps if they exist
-    let deps_dir = wit_dir.join("deps");
-    if deps_dir.is_dir() {
-        for entry in std::fs::read_dir(&deps_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                let pkg = UnresolvedPackageGroup::parse_dir(&path)?;
-                resolve.push_group(pkg)?;
-            }
-        }
-    }
-
-    // Then load the main package
     let pkg_id = if wit_dir.is_dir() {
-        let pkg = UnresolvedPackageGroup::parse_dir(wit_dir)?;
-        resolve.push_group(pkg)?
+        resolve.push_dir(wit_dir)?.0
     } else {
-        let pkg = UnresolvedPackageGroup::parse_file(wit_dir)?;
-        resolve.push_group(pkg)?
+        let parent = wit_dir.parent().unwrap_or(Path::new("."));
+        let deps_dir = parent.join("deps");
+        if deps_dir.is_dir() {
+            resolve.push_dir(parent)?.0
+        } else {
+            resolve.push_file(wit_dir)?
+        }
     };
 
     // Find world
@@ -665,7 +640,7 @@ fn uses_retptr(resolve: &Resolve, ty: &wit_parser::Type) -> bool {
                 wit_parser::TypeDefKind::Tuple(_) => true,
                 wit_parser::TypeDefKind::Variant(_) => true,
                 wit_parser::TypeDefKind::Option(_) => true,
-                wit_parser::TypeDefKind::Result(_) => true,
+                wit_parser::TypeDefKind::Result(r) => r.ok.is_some() || r.err.is_some(),
                 wit_parser::TypeDefKind::Type(inner) => uses_retptr(resolve, inner),
                 _ => false,
             }
@@ -691,12 +666,17 @@ fn collect_retptr_imports(
                     let iface = &resolve.interfaces[*id];
                     if let Some(pkg_id) = iface.package {
                         let pkg = &resolve.packages[pkg_id];
-                        format!(
-                            "{}:{}/{}",
-                            pkg.name.namespace,
-                            pkg.name.name,
-                            iface.name.as_ref().unwrap_or(&String::new())
-                        )
+                        let iface_name = iface.name.as_deref().unwrap_or("");
+                        match &pkg.name.version {
+                            Some(ver) => format!(
+                                "{}:{}/{}@{}",
+                                pkg.name.namespace, pkg.name.name, iface_name, ver
+                            ),
+                            None => format!(
+                                "{}:{}/{}",
+                                pkg.name.namespace, pkg.name.name, iface_name
+                            ),
+                        }
                     } else {
                         iface.name.clone().unwrap_or_default()
                     }
@@ -1098,6 +1078,30 @@ version = "0.1.0"
     );
     std::fs::write(project_dir.join("wkg.toml"), wkg_toml)?;
 
+    // Create justfile
+    let justfile = r#"# Project
+# Usage: just <command>
+
+default:
+    @just --list
+
+generate:
+    moon-component generate wit/world.wit -o .
+
+build: generate
+    if [ -d impl ]; then moon build --target wasm --release impl; else moon build --target wasm --release; fi
+
+componentize: build
+    if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
+
+run: componentize
+    wasmtime run component.wasm
+
+clean:
+    rm -rf _build component.wasm gen impl
+"#;
+    std::fs::write(project_dir.join("justfile"), justfile)?;
+
     eprintln!("Created project: {}", name);
     eprintln!("\nNext steps:");
     eprintln!("  cd {}", name);
@@ -1277,36 +1281,50 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
 }
 
 fn find_codegen_root() -> Result<PathBuf> {
-    // Find the moon-component project root based on the binary location
-    let exe_path = std::env::current_exe()?;
-    // Binary is at tools/moon-component/target/release/moon-component
-    // Project root is 4 levels up
-    let dir = exe_path
-        .parent() // release
-        .and_then(|p| p.parent()) // target
-        .and_then(|p| p.parent()) // moon-component
-        .and_then(|p| p.parent()) // tools
-        .and_then(|p| p.parent()) // project root
-        .map(|p| p.to_path_buf())
-        .context("failed to find codegen root from binary path")?;
-
-    // Verify it's the correct project
-    if !dir.join("src/main/main.mbt").exists() {
-        // Try to find from current dir
-        let mut search_dir = std::env::current_dir()?;
-        loop {
-            if search_dir.join("src/main/main.mbt").exists()
-                && search_dir.join("src/codegen.mbt").exists()
-            {
-                return Ok(search_dir);
-            }
-            if !search_dir.pop() {
-                bail!("could not find moon-component codegen root");
-            }
+    if let Ok(root) = std::env::var("MOON_COMPONENT_CODEGEN_ROOT") {
+        let root = PathBuf::from(root);
+        if root.join("src/main/main.mbt").exists() {
+            return Ok(root);
         }
+        bail!(
+            "MOON_COMPONENT_CODEGEN_ROOT is set but invalid: {}",
+            root.display()
+        );
     }
 
-    Ok(dir)
+    // Find the moon-component project root based on the binary location
+    let exe_path = std::env::current_exe()?;
+    if let Some(dir) = find_codegen_root_from(&exe_path) {
+        return Ok(dir);
+    }
+
+    // Try to find from current dir
+    let cwd = std::env::current_dir()?;
+    if let Some(dir) = find_codegen_root_from(&cwd) {
+        return Ok(dir);
+    }
+
+    bail!(
+        "could not find moon-component codegen root. Set MOON_COMPONENT_CODEGEN_ROOT to the repo root"
+    )
+}
+
+fn find_codegen_root_from(start: &Path) -> Option<PathBuf> {
+    let mut dir = if start.is_dir() {
+        start.to_path_buf()
+    } else {
+        start.parent()?.to_path_buf()
+    };
+    loop {
+        if dir.join("src/main/main.mbt").exists()
+            && dir.join("src/codegen_main.mbt").exists()
+        {
+            return Some(dir);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
 }
 
 fn find_wasm_file(target: &str, release: bool) -> Result<PathBuf> {
