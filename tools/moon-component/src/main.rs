@@ -195,6 +195,7 @@ enum Commands {
     },
 
     /// Plug component exports into another component's imports
+    #[command(hide = true)]
     Plug {
         /// Socket component (the one with imports)
         socket: PathBuf,
@@ -208,14 +209,26 @@ enum Commands {
         output: PathBuf,
     },
 
-    /// Compose components using a WAC file
+    /// Compose components using a config or WAC file
     Compose {
         /// WAC source file
-        wac_file: PathBuf,
+        wac_file: Option<PathBuf>,
+
+        /// Compose from moon-component.toml (bundle config)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
 
         /// Output component file
         #[arg(short, long, default_value = "composed.wasm")]
         output: PathBuf,
+
+        /// Only build, don't compose (config mode only)
+        #[arg(long)]
+        build_only: bool,
+
+        /// Show generated WAC without executing (config mode only)
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Bundle components from workspace config
@@ -250,21 +263,19 @@ fn main() -> Result<()> {
             world,
             pkg_format,
             js_string_builtins,
-        } => {
-            cmd_generate(
-                &wit_path,
-                &out_dir,
-                project_name.as_deref(),
-                &gen_dir,
-                &impl_dir,
-                !no_impl,
-                wkg,
-                &wkg_version,
-                world.as_deref(),
-                &pkg_format,
-                js_string_builtins,
-            )
-        }
+        } => cmd_generate(
+            &wit_path,
+            &out_dir,
+            project_name.as_deref(),
+            &gen_dir,
+            &impl_dir,
+            !no_impl,
+            wkg,
+            &wkg_version,
+            world.as_deref(),
+            &pkg_format,
+            js_string_builtins,
+        ),
 
         Commands::Build { target, release } => cmd_build(&target, release),
 
@@ -314,7 +325,15 @@ fn main() -> Result<()> {
             world,
             interface,
             check,
-        } => cmd_wit_from_moonbit(&pkg_dir, &output, &namespace, name.as_deref(), world.as_deref(), &interface, check),
+        } => cmd_wit_from_moonbit(
+            &pkg_dir,
+            &output,
+            &namespace,
+            name.as_deref(),
+            world.as_deref(),
+            &interface,
+            check,
+        ),
 
         Commands::Plug {
             socket,
@@ -322,7 +341,27 @@ fn main() -> Result<()> {
             output,
         } => cmd_plug(&socket, &plugs, &output),
 
-        Commands::Compose { wac_file, output } => cmd_compose(&wac_file, &output),
+        Commands::Compose {
+            wac_file,
+            config,
+            output,
+            build_only,
+            dry_run,
+        } => {
+            if let Some(cfg) = config {
+                if wac_file.is_some() {
+                    bail!("compose: use either <wac_file> or --config, not both");
+                }
+                cmd_bundle(&cfg, build_only, dry_run)
+            } else if let Some(wac) = wac_file {
+                if build_only || dry_run {
+                    bail!("compose: --build-only/--dry-run require --config");
+                }
+                cmd_compose(&wac, &output)
+            } else {
+                bail!("compose: missing <wac_file> or --config");
+            }
+        }
 
         Commands::Bundle {
             config,
@@ -371,8 +410,7 @@ fn parse_wit(wit_path: &Path, world: Option<&str>) -> Result<(Resolve, wit_parse
 
     // Find world
     let world_id = if let Some(world_name) = world {
-        resolve
-            .packages[pkg_id]
+        resolve.packages[pkg_id]
             .worlds
             .iter()
             .find(|(name, _)| *name == world_name)
@@ -500,7 +538,11 @@ fn cmd_generate(
 fn cmd_build(target: &str, release: bool) -> Result<()> {
     eprintln!("Building MoonBit project...");
 
-    let mut args = vec!["build".to_string(), "--target".to_string(), target.to_string()];
+    let mut args = vec![
+        "build".to_string(),
+        "--target".to_string(),
+        target.to_string(),
+    ];
 
     if release {
         args.push("--release".to_string());
@@ -618,7 +660,10 @@ fn uses_retptr(resolve: &Resolve, ty: &wit_parser::Type) -> bool {
 }
 
 /// Collect import function names that use retptr (and should have no result in canonical ABI)
-fn collect_retptr_imports(resolve: &Resolve, world_id: wit_parser::WorldId) -> std::collections::HashSet<String> {
+fn collect_retptr_imports(
+    resolve: &Resolve,
+    world_id: wit_parser::WorldId,
+) -> std::collections::HashSet<String> {
     let mut retptr_imports = std::collections::HashSet::new();
     let world = &resolve.worlds[world_id];
 
@@ -631,7 +676,12 @@ fn collect_retptr_imports(resolve: &Resolve, world_id: wit_parser::WorldId) -> s
                     let iface = &resolve.interfaces[*id];
                     if let Some(pkg_id) = iface.package {
                         let pkg = &resolve.packages[pkg_id];
-                        format!("{}:{}/{}", pkg.name.namespace, pkg.name.name, iface.name.as_ref().unwrap_or(&String::new()))
+                        format!(
+                            "{}:{}/{}",
+                            pkg.name.namespace,
+                            pkg.name.name,
+                            iface.name.as_ref().unwrap_or(&String::new())
+                        )
                     } else {
                         iface.name.clone().unwrap_or_default()
                     }
@@ -669,7 +719,10 @@ fn collect_retptr_imports(resolve: &Resolve, world_id: wit_parser::WorldId) -> s
 /// 3. Strips `(result i32)` from matching import types
 /// 4. Removes `drop` instructions after calls to those imports
 /// 5. Converts back to wasm
-fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<String>) -> Result<Vec<u8>> {
+fn fix_import_abi(
+    wasm_bytes: &[u8],
+    retptr_imports: &std::collections::HashSet<String>,
+) -> Result<Vec<u8>> {
     // Convert to WAT
     let wat_string = wasmprinter::print_bytes(wasm_bytes)?;
 
@@ -680,7 +733,8 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
 
     // Step 1: Collect imports that need fixing and their function indices
     // Format of import line: (import "module" "name" (func (;N;) (type M)))
-    let mut imports_to_fix: std::collections::HashMap<usize, usize> = std::collections::HashMap::new(); // func_idx -> type_idx
+    let mut imports_to_fix: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new(); // func_idx -> type_idx
     let mut func_indices_to_fix: Vec<usize> = Vec::new();
 
     for line in wat_string.lines() {
@@ -698,11 +752,15 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
                     // Extract function index
                     if let Some(start) = line.find("(func (;") {
                         if let Some(end) = line[start + 8..].find(";)") {
-                            if let Ok(func_idx) = line[start + 8..start + 8 + end].parse::<usize>() {
+                            if let Ok(func_idx) = line[start + 8..start + 8 + end].parse::<usize>()
+                            {
                                 // Extract type index
                                 if let Some(type_start) = line.find("(type ") {
                                     if let Some(type_end) = line[type_start + 6..].find(')') {
-                                        if let Ok(type_idx) = line[type_start + 6..type_start + 6 + type_end].parse::<usize>() {
+                                        if let Ok(type_idx) = line
+                                            [type_start + 6..type_start + 6 + type_end]
+                                            .parse::<usize>()
+                                        {
                                             imports_to_fix.insert(func_idx, type_idx);
                                             func_indices_to_fix.push(func_idx);
                                         }
@@ -721,9 +779,12 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
     }
 
     // Step 2: Build mapping of type indices -> equivalent without result
-    let mut type_definitions: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
-    let mut type_without_result: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    let mut param_to_noresult_type: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut type_definitions: std::collections::HashMap<usize, String> =
+        std::collections::HashMap::new();
+    let mut type_without_result: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
+    let mut param_to_noresult_type: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
 
     // Collect types that need fixing
     let types_to_fix: std::collections::HashSet<usize> = imports_to_fix.values().copied().collect();
@@ -761,7 +822,9 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
     for &type_idx in &types_to_fix {
         if let Some(type_def) = type_definitions.get(&type_idx) {
             if type_def.contains("(result i32)") {
-                let no_result_def = type_def.replace(" (result i32)", "").replace("(result i32)", "");
+                let no_result_def = type_def
+                    .replace(" (result i32)", "")
+                    .replace("(result i32)", "");
                 if let Some(func_start) = no_result_def.find("(func") {
                     let params_part = &no_result_def[func_start..];
                     let params_only = if let Some(end_paren) = params_part.rfind("))") {
@@ -775,7 +838,8 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
                     } else {
                         // Create a new type without result
                         // params_only is like "(func (param i32 i32 i32)", need to add closing parens
-                        let new_type_def = format!("  (type (;{};) {}))", next_type_idx, params_only);
+                        let new_type_def =
+                            format!("  (type (;{};) {}))", next_type_idx, params_only);
                         new_types.push(new_type_def);
                         type_without_result.insert(type_idx, next_type_idx);
                         param_to_noresult_type.insert(params_only, next_type_idx);
@@ -790,7 +854,11 @@ fn fix_import_abi(wasm_bytes: &[u8], retptr_imports: &std::collections::HashSet<
         return Ok(wasm_bytes.to_vec());
     }
 
-    eprintln!("Fixing import ABI for {} function(s), adding {} new type(s)...", imports_to_fix.len(), new_types.len());
+    eprintln!(
+        "Fixing import ABI for {} function(s), adding {} new type(s)...",
+        imports_to_fix.len(),
+        new_types.len()
+    );
 
     // Step 3: Insert new types and replace type references for imports that need fixing
     let mut result_lines: Vec<String> = Vec::new();
@@ -979,7 +1047,10 @@ fn main {
 
     // Create or copy WIT file
     if let Some(wit_src) = wit {
-        std::fs::copy(wit_src, project_dir.join("wit").join(wit_src.file_name().unwrap()))?;
+        std::fs::copy(
+            wit_src,
+            project_dir.join("wit").join(wit_src.file_name().unwrap()),
+        )?;
     } else {
         std::fs::write(
             project_dir.join("wit/world.wit"),
@@ -1034,11 +1105,17 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
         .and_then(|v| v.as_str())
         .context("moon.mod.json missing 'name' field")?;
 
-    eprintln!("Initializing component in existing project: {}", parent_name);
+    eprintln!(
+        "Initializing component in existing project: {}",
+        parent_name
+    );
 
     // Check WIT exists
     if !wit_path.exists() {
-        bail!("WIT path not found: {}. Create a WIT file first.", wit_path.display());
+        bail!(
+            "WIT path not found: {}. Create a WIT file first.",
+            wit_path.display()
+        );
     }
 
     // Create component directory
@@ -1093,8 +1170,8 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
         Some(&comp_name),
         "gen",
         "impl",
-        true,  // generate_impl
-        true,  // wkg
+        true, // generate_impl
+        true, // wkg
         "0.1.0",
         world,
         "json",
@@ -1104,7 +1181,10 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
     eprintln!("\n✅ Component initialized!");
     eprintln!("\nStructure:");
     eprintln!("  {}/", component_dir);
-    eprintln!("    ├── moon.mod.json   # deps: {{ {}: {{ path: \"..\" }} }}", parent_name);
+    eprintln!(
+        "    ├── moon.mod.json   # deps: {{ {}: {{ path: \"..\" }} }}",
+        parent_name
+    );
     eprintln!("    ├── wit/            # WIT definitions");
     eprintln!("    ├── gen/            # Generated bindings (auto-regenerated)");
     eprintln!("    ├── impl/           # Your implementation (edit this)");
@@ -1121,9 +1201,7 @@ fn cmd_fetch(wit_dir: &Path, output_type: &str, update: bool) -> Result<()> {
     eprintln!("Fetching WIT dependencies from: {}", wit_dir.display());
 
     // Check if wkg is available
-    let wkg_check = Command::new("wkg")
-        .arg("--version")
-        .output();
+    let wkg_check = Command::new("wkg").arg("--version").output();
 
     if wkg_check.is_err() {
         bail!("wkg not found. Install with: cargo install wkg");
@@ -1132,16 +1210,17 @@ fn cmd_fetch(wit_dir: &Path, output_type: &str, update: bool) -> Result<()> {
     // Build command
     let subcommand = if update { "update" } else { "fetch" };
     let mut cmd = Command::new("wkg");
-    cmd.arg("wit")
-        .arg(subcommand)
-        .arg("--wit-dir")
-        .arg(wit_dir);
+    cmd.arg("wit").arg(subcommand).arg("--wit-dir").arg(wit_dir);
 
     if !update {
         cmd.arg("--type").arg(output_type);
     }
 
-    eprintln!("Running: wkg wit {} --wit-dir {}", subcommand, wit_dir.display());
+    eprintln!(
+        "Running: wkg wit {} --wit-dir {}",
+        subcommand,
+        wit_dir.display()
+    );
 
     let status = cmd.status().context("failed to run wkg")?;
 
@@ -1290,7 +1369,10 @@ fn cmd_wit_from_moonbit(
     check_only: bool,
 ) -> Result<()> {
     if check_only {
-        eprintln!("Checking WIT compatibility for MoonBit package: {}", pkg_dir.display());
+        eprintln!(
+            "Checking WIT compatibility for MoonBit package: {}",
+            pkg_dir.display()
+        );
     } else {
         eprintln!("Generating WIT from MoonBit package: {}", pkg_dir.display());
     }
@@ -1317,12 +1399,16 @@ fn cmd_wit_from_moonbit(
             }
         }
         if let Some(path) = found {
-            return parse_mbti_and_generate_wit(&path, output, namespace, name, world, interface, check_only);
+            return parse_mbti_and_generate_wit(
+                &path, output, namespace, name, world, interface, check_only,
+            );
         }
         bail!("Could not find pkg.generated.mbti in {}", pkg_dir.display());
     }
 
-    parse_mbti_and_generate_wit(&mbti_path, output, namespace, name, world, interface, check_only)
+    parse_mbti_and_generate_wit(
+        &mbti_path, output, namespace, name, world, interface, check_only,
+    )
 }
 
 /// Validation error for WIT compatibility
@@ -1396,9 +1482,11 @@ fn parse_mbti_and_generate_wit(
         }
 
         // Check for non-pub(all) struct
-        if (trimmed.starts_with("pub struct ") || trimmed.starts_with("priv struct ") ||
-            (trimmed.starts_with("struct ") && !trimmed.starts_with("pub(all) struct ")))
-            && trimmed.ends_with("{") {
+        if (trimmed.starts_with("pub struct ")
+            || trimmed.starts_with("priv struct ")
+            || (trimmed.starts_with("struct ") && !trimmed.starts_with("pub(all) struct ")))
+            && trimmed.ends_with("{")
+        {
             let name_part = if let Some(s) = trimmed.strip_prefix("pub struct ") {
                 s
             } else if let Some(s) = trimmed.strip_prefix("priv struct ") {
@@ -1409,7 +1497,10 @@ fn parse_mbti_and_generate_wit(
             let name_part = name_part.strip_suffix(" {").unwrap_or(name_part);
             warnings.push(ValidationError {
                 location: format!("{}:{}", mbti_path.display(), line_num),
-                message: format!("Struct `{}` is not `pub(all)`. Use `pub(all) struct {}` to export it to WIT.", name_part, name_part),
+                message: format!(
+                    "Struct `{}` is not `pub(all)`. Use `pub(all) struct {}` to export it to WIT.",
+                    name_part, name_part
+                ),
             });
         }
 
@@ -1419,7 +1510,13 @@ fn parse_mbti_and_generate_wit(
                 for (field_name, field_type) in &struct_fields {
                     if let Some(err) = validate_wit_type(field_type, &defined_types) {
                         errors.push(ValidationError {
-                            location: format!("{}:{} (struct {}.{})", mbti_path.display(), line_num, current_type, field_name),
+                            location: format!(
+                                "{}:{} (struct {}.{})",
+                                mbti_path.display(),
+                                line_num,
+                                current_type,
+                                field_name
+                            ),
                             message: err,
                         });
                     }
@@ -1429,7 +1526,11 @@ fn parse_mbti_and_generate_wit(
                 types_wit.push_str(&format!("  record {} {{\n", to_kebab_case(&current_type)));
                 for (field_name, field_type) in &struct_fields {
                     let wit_type = moonbit_type_to_wit(field_type);
-                    types_wit.push_str(&format!("    {}: {},\n", to_kebab_case(field_name), wit_type));
+                    types_wit.push_str(&format!(
+                        "    {}: {},\n",
+                        to_kebab_case(field_name),
+                        wit_type
+                    ));
                 }
                 types_wit.push_str("  }\n\n");
                 in_struct = false;
@@ -1460,9 +1561,11 @@ fn parse_mbti_and_generate_wit(
         }
 
         // Check for non-pub(all) enum
-        if (trimmed.starts_with("pub enum ") || trimmed.starts_with("priv enum ") ||
-            (trimmed.starts_with("enum ") && !trimmed.starts_with("pub(all) enum ")))
-            && trimmed.ends_with("{") {
+        if (trimmed.starts_with("pub enum ")
+            || trimmed.starts_with("priv enum ")
+            || (trimmed.starts_with("enum ") && !trimmed.starts_with("pub(all) enum ")))
+            && trimmed.ends_with("{")
+        {
             let name_part = if let Some(s) = trimmed.strip_prefix("pub enum ") {
                 s
             } else if let Some(s) = trimmed.strip_prefix("priv enum ") {
@@ -1473,7 +1576,10 @@ fn parse_mbti_and_generate_wit(
             let name_part = name_part.strip_suffix(" {").unwrap_or(name_part);
             warnings.push(ValidationError {
                 location: format!("{}:{}", mbti_path.display(), line_num),
-                message: format!("Enum `{}` is not `pub(all)`. Use `pub(all) enum {}` to export it to WIT.", name_part, name_part),
+                message: format!(
+                    "Enum `{}` is not `pub(all)`. Use `pub(all) enum {}` to export it to WIT.",
+                    name_part, name_part
+                ),
             });
         }
 
@@ -1513,7 +1619,13 @@ fn parse_mbti_and_generate_wit(
                     for ty in types_str.split(", ") {
                         if let Some(err) = validate_wit_type(ty.trim(), &defined_types) {
                             errors.push(ValidationError {
-                                location: format!("{}:{} (enum {}.{})", mbti_path.display(), line_num, current_type, trimmed),
+                                location: format!(
+                                    "{}:{} (enum {}.{})",
+                                    mbti_path.display(),
+                                    line_num,
+                                    current_type,
+                                    trimmed
+                                ),
                                 message: err,
                             });
                         }
@@ -1570,7 +1682,8 @@ fn parse_mbti_and_generate_wit(
     if has_exports_trait && method_count == 0 {
         warnings.push(ValidationError {
             location: mbti_path.display().to_string(),
-            message: "Exports trait has no methods. Add methods to define the component interface.".to_string(),
+            message: "Exports trait has no methods. Add methods to define the component interface."
+                .to_string(),
         });
     }
 
@@ -1587,12 +1700,19 @@ fn parse_mbti_and_generate_wit(
         for e in &errors {
             eprintln!("  {}", e);
         }
-        bail!("WIT compatibility check failed with {} error(s)", errors.len());
+        bail!(
+            "WIT compatibility check failed with {} error(s)",
+            errors.len()
+        );
     }
 
     if check_only {
         eprintln!("\n✅ WIT compatibility check passed!");
-        eprintln!("   {} type(s), {} method(s) found", defined_types.len(), method_count);
+        eprintln!(
+            "   {} type(s), {} method(s) found",
+            defined_types.len(),
+            method_count
+        );
         return Ok(());
     }
 
@@ -1656,7 +1776,8 @@ fn validate_wit_type(ty: &str, defined_types: &[String]) -> Option<String> {
 
     // Primitive types
     match ty {
-        "Int" | "Int64" | "UInt" | "UInt64" | "Float" | "Double" | "Bool" | "Char" | "String" | "Unit" => None,
+        "Int" | "Int64" | "UInt" | "UInt64" | "Float" | "Double" | "Bool" | "Char" | "String"
+        | "Unit" => None,
         _ => {
             // Check if it's a defined type
             if defined_types.contains(&ty.to_string()) {
@@ -1668,7 +1789,10 @@ fn validate_wit_type(ty: &str, defined_types: &[String]) -> Option<String> {
                 } else if ty.starts_with("&") || ty.starts_with("Ref[") {
                     Some(format!("Reference types are not supported in WIT: {}", ty))
                 } else if ty.contains("Map[") || ty.contains("HashMap[") {
-                    Some(format!("Map types are not directly supported in WIT. Use list<tuple<K, V>> instead: {}", ty))
+                    Some(format!(
+                        "Map types are not directly supported in WIT. Use list<tuple<K, V>> instead: {}",
+                        ty
+                    ))
                 } else {
                     // Assume it's a custom type that will be defined
                     None
@@ -1772,7 +1896,11 @@ fn parse_trait_method(line: &str) -> Option<String> {
 
     let params_str = wit_params.join(", ");
     if return_type.is_empty() {
-        Some(format!("{}: func({})", to_kebab_case(method_name), params_str))
+        Some(format!(
+            "{}: func({})",
+            to_kebab_case(method_name),
+            params_str
+        ))
     } else {
         Some(format!(
             "{}: func({}) -> {}",
@@ -1794,7 +1922,11 @@ fn moonbit_type_to_wit(ty: &str) -> String {
 
     // Handle Result[T, E]
     if ty.starts_with("Result[") {
-        let inner = ty.strip_prefix("Result[").unwrap().strip_suffix(']').unwrap();
+        let inner = ty
+            .strip_prefix("Result[")
+            .unwrap()
+            .strip_suffix(']')
+            .unwrap();
         let parts: Vec<&str> = inner.split(", ").collect();
         if parts.len() == 2 {
             return format!(
@@ -1807,13 +1939,21 @@ fn moonbit_type_to_wit(ty: &str) -> String {
 
     // Handle Array[T]
     if ty.starts_with("Array[") {
-        let inner = ty.strip_prefix("Array[").unwrap().strip_suffix(']').unwrap();
+        let inner = ty
+            .strip_prefix("Array[")
+            .unwrap()
+            .strip_suffix(']')
+            .unwrap();
         return format!("list<{}>", moonbit_type_to_wit(inner));
     }
 
     // Handle Option[T]
     if ty.starts_with("Option[") {
-        let inner = ty.strip_prefix("Option[").unwrap().strip_suffix(']').unwrap();
+        let inner = ty
+            .strip_prefix("Option[")
+            .unwrap()
+            .strip_suffix(']')
+            .unwrap();
         return format!("option<{}>", moonbit_type_to_wit(inner));
     }
 
@@ -1948,6 +2088,8 @@ struct BundleSettings {
 enum DependencySpec {
     /// MoonBit local path: { path = "libs/math" }
     MoonBit { path: String },
+    /// Prebuilt component: { component = "path/to/component.wasm" }
+    Component { component: String },
     /// Simple path: "libs/math"
     Simple(String),
 }
@@ -1983,26 +2125,53 @@ fn resolve_dependency(
     build_settings: &BuildSettings,
     dry_run: bool,
 ) -> Result<ResolvedDep> {
-    // Determine output path for this dependency
-    let parts: Vec<&str> = name.split(':').collect();
-    let output_path = if parts.len() == 2 {
-        let ns_dir = deps_dir.join(parts[0]);
-        std::fs::create_dir_all(&ns_dir)?;
-        deps_dir.join(format!("{}/{}.wasm", parts[0], parts[1]))
-    } else {
-        deps_dir.join(format!("{}.wasm", name.replace(':', "_")))
-    };
+    match spec {
+        DependencySpec::Component { component } => {
+            let component_path = {
+                let p = PathBuf::from(component);
+                if p.is_absolute() {
+                    p
+                } else {
+                    config_dir.join(p)
+                }
+            };
+            if !component_path.exists() {
+                bail!(
+                    "Component not found for {}: {}",
+                    name,
+                    component_path.display()
+                );
+            }
+            println!("  [component] {} -> {}", name, component_path.display());
+            Ok(ResolvedDep {
+                wasm_path: component_path,
+            })
+        }
+        DependencySpec::MoonBit { path } | DependencySpec::Simple(path) => {
+            // Determine output path for this dependency
+            let parts: Vec<&str> = name.split(':').collect();
+            let output_path = if parts.len() == 2 {
+                let ns_dir = deps_dir.join(parts[0]);
+                std::fs::create_dir_all(&ns_dir)?;
+                deps_dir.join(format!("{}/{}.wasm", parts[0], parts[1]))
+            } else {
+                deps_dir.join(format!("{}.wasm", name.replace(':', "_")))
+            };
 
-    let path = match spec {
-        DependencySpec::MoonBit { path } => path,
-        DependencySpec::Simple(path) => path,
-    };
+            resolve_moonbit_dep(
+                name,
+                path,
+                config_dir,
+                &output_path,
+                build_settings,
+                dry_run,
+            )?;
 
-    resolve_moonbit_dep(name, path, config_dir, &output_path, build_settings, dry_run)?;
-
-    Ok(ResolvedDep {
-        wasm_path: output_path,
-    })
+            Ok(ResolvedDep {
+                wasm_path: output_path,
+            })
+        }
+    }
 }
 
 /// Build MoonBit component
@@ -2018,7 +2187,11 @@ fn resolve_moonbit_dep(
     let wit_path = component_path.join("wit");
 
     if !wit_path.exists() {
-        bail!("WIT directory not found for {}: {}", name, wit_path.display());
+        bail!(
+            "WIT directory not found for {}: {}",
+            name,
+            wit_path.display()
+        );
     }
 
     println!("  [moonbit] {} -> {}", name, output_path.display());
@@ -2046,7 +2219,11 @@ fn resolve_moonbit_dep(
     }
 
     // Find the built wasm
-    let build_mode = if build_settings.release { "release" } else { "debug" };
+    let build_mode = if build_settings.release {
+        "release"
+    } else {
+        "debug"
+    };
     let wasm_path = component_path
         .join("_build")
         .join(&build_settings.target)
@@ -2090,14 +2267,8 @@ fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()>
     let mut resolved_deps: Vec<ResolvedDep> = Vec::new();
 
     for (name, spec) in &config.dependencies {
-        let resolved = resolve_dependency(
-            name,
-            spec,
-            config_dir,
-            &deps_dir,
-            &config.build,
-            dry_run,
-        )?;
+        let resolved =
+            resolve_dependency(name, spec, config_dir, &deps_dir, &config.build, dry_run)?;
         resolved_deps.push(resolved);
     }
 
@@ -2134,7 +2305,7 @@ fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()>
     let plug_paths: Vec<PathBuf> = resolved_deps.iter().map(|d| d.wasm_path.clone()).collect();
 
     if dry_run {
-        println!("\nWould run: wac plug \\");
+        println!("\nWould compose: \\");
         for plug in &plug_paths {
             println!("  --plug {} \\", plug.display());
         }
@@ -2142,7 +2313,7 @@ fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()>
         return Ok(());
     }
 
-    println!("Composing components using wac plug...");
+    println!("Composing components...");
     run_wac_plug(&entry_wasm, &plug_paths, &output_path)?;
 
     println!("\n=== Bundle Complete ===");
@@ -2150,7 +2321,11 @@ fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()>
 
     // Print summary
     let output_size = std::fs::metadata(&output_path)?.len();
-    println!("Size: {} bytes ({:.1} KB)", output_size, output_size as f64 / 1024.0);
+    println!(
+        "Size: {} bytes ({:.1} KB)",
+        output_size,
+        output_size as f64 / 1024.0
+    );
 
     Ok(())
 }
@@ -2160,7 +2335,10 @@ fn _generate_wac(config: &BundleConfig, _build_dir: &Path) -> Result<String> {
     let mut wac = String::new();
 
     // Package declaration
-    wac.push_str(&format!("package {}:composed;\n\n", config.bundle.name.replace('/', ":")));
+    wac.push_str(&format!(
+        "package {}:composed;\n\n",
+        config.bundle.name.replace('/', ":")
+    ));
 
     // Instantiate dependencies
     for (name, _) in &config.dependencies {

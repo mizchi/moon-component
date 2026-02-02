@@ -27,13 +27,7 @@ moon-component component wit/world.wit -o impl.component.wasm --release
 ## Compose Components
 
 ```bash
-moon-component plug \
-  --plug dep-a.component.wasm \
-  --plug dep-b.component.wasm \
-  app.component.wasm \
-  -o composed.component.wasm
-
-# or use a config file
+# Use a config file (default entry)
 moon-component compose -c moon-component.toml
 ```
 

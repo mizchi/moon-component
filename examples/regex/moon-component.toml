@@ -1,0 +1,11 @@
+[bundle]
+name = "local/regex-app"
+output = "dist/regex-app.wasm"
+entry = "host-moonbit"
+
+[dependencies]
+"local:regex/regex" = { component = "guest-rust/target/wasm32-wasip1/release/regex_guest.wasm" }
+
+[build]
+target = "wasm"
+release = true

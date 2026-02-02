@@ -86,27 +86,19 @@ moon-component componentize target/wasm/release/build/main/main.wasm \
   --wit-dir wit -o component.wasm
 ```
 
-### `moon-component plug <socket> <plugs>...`
+### `moon-component compose`
 
-Plug component exports into another component's imports (using `wac plug`).
-
-```bash
-# Plug library.wasm exports into app.wasm imports
-moon-component plug app.wasm library.wasm -o composed.wasm
-
-# Multiple plugs
-moon-component plug app.wasm lib1.wasm lib2.wasm -o composed.wasm
-```
-
-### `moon-component compose <wac-file>`
-
-Compose multiple components using a WAC file (using `wac compose`).
+Compose components using a config file (default) or a compose file (.wac).
 
 ```bash
+# Default entry: config file
+moon-component compose -c moon-component.toml
+
+# Or use a compose file directly
 moon-component compose composition.wac -o composed.wasm
 ```
 
-Example WAC file (`composition.wac`):
+Example compose file (`composition.wac`):
 ```wac
 package example:composed;
 
@@ -119,22 +111,22 @@ let composed = new app { api: lib.api };
 export composed...;
 ```
 
-### `moon-component bundle`
+### Config-based composition
 
-Bundle components from a workspace config file. Automatically builds all components and composes them using WAC.
+Bundle components from a workspace config file. Automatically builds all components and composes them.
 
 ```bash
-# Bundle using moon-component.toml
-moon-component bundle
+# Use moon-component.toml
+moon-component compose -c moon-component.toml
 
 # Custom config file
-moon-component bundle -c my-config.toml
+moon-component compose -c my-config.toml
 
 # Only build components, don't compose
-moon-component bundle --build-only
+moon-component compose -c moon-component.toml --build-only
 
-# Preview generated WAC without executing
-moon-component bundle --dry-run
+# Preview generated compose file without executing
+moon-component compose -c moon-component.toml --dry-run
 ```
 
 ## Bundle Configuration
@@ -150,12 +142,14 @@ entry = "apps/main/component"
 # External imports (left unresolved for runtime)
 externals = ["wasi:io/*", "wasi:cli/*"]
 
-# Optional: use explicit WAC file instead of auto-generation
-# wac = "custom.wac"
+# Optional: use explicit compose file instead of auto-generation
 
 [dependencies]
 "mizchi:flatbuffers" = { path = "libs/flatbuffers/component" }
 "mizchi:json" = { path = "libs/json/component" }
+
+# Prebuilt component (no build)
+# "local:regex/regex" = { component = "path/to/regex_guest.wasm" }
 
 [build]
 target = "wasm"
@@ -166,10 +160,10 @@ release = true
 
 1. Reads `moon-component.toml`
 2. Builds entry and all dependency components (parallel-ready)
-3. Auto-generates `.wac` file (or uses explicit one)
-4. Runs `wac compose` to create final component
+3. Auto-generates compose file (or uses explicit one)
+4. Composes the final component
 
-### Generated WAC Example
+### Generated Compose File Example
 
 ```wac
 package my:app:composed;
@@ -201,22 +195,14 @@ monorepo/
 
 ```bash
 # One command to build and compose everything
-moon-component bundle
+moon-component compose -c moon-component.toml
 ```
 
 ### Manual Composition (Alternative)
 
-For fine-grained control, you can use `plug` or `compose` directly:
+For fine-grained control, use a compose file directly:
 
 ```bash
-# Build each component manually
-moon-component component libs/flatbuffers/wit/world.wit -o flatbuffers.wasm
-moon-component component apps/main/wit/world.wit -o main.wasm
-
-# Plug libraries into app
-moon-component plug main.wasm flatbuffers.wasm -o app.wasm
-
-# Or use WAC file for complex compositions
 moon-component compose composition.wac -o app.wasm
 ```
 

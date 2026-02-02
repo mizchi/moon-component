@@ -26,15 +26,11 @@ moon-component componentize _build/wasm/release/build/impl/impl.wasm \
   --wit-dir wit -o host.component.wasm
 ```
 
-## 3) 合成 (wac)
+## 3) 合成
 
 ```bash
 cd examples/regex
-mkdir -p dist
-wac plug \
-  --plug guest-rust/target/wasm32-wasip1/release/regex_guest.wasm \
-  host-moonbit/host.component.wasm \
-  -o dist/regex-app.wasm
+moon-component compose -c moon-component.toml
 ```
 
 ## 4) 実行 (wasmtime)
@@ -48,4 +44,4 @@ wasmtime run --invoke 'run("[a-z]+", "hello 123", "X")' dist/regex-app.wasm
 
 - Rust guest: `local:regex/regex` を export
 - MoonBit host: `local:regex/regex` を import して `run` を export
-- `wac plug` で host に guest を差し込み、1つの component に合成
+- `moon-component compose -c` で host に guest を差し込み、1つの component に合成

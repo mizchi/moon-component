@@ -11,9 +11,6 @@ MoonBit で WebAssembly Component を作る/使うための CLI。
 # Prebuilt binary (macOS/Linux)
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
-# wac (bundle/plug/compose を使う場合だけ必要)
-cargo install wac-cli
-
 # npx (no install)
 npx @mizchi/moon-component
 
@@ -128,7 +125,6 @@ cargo run --release --manifest-path examples/host/rust/Cargo.toml -- import \
 
 ポイント:
 - Host が使う WIT は、対象 component の WIT と一致している必要がある
-- `bundle/plug/compose` を使う場合は `wac` が必要
 
 ---
 

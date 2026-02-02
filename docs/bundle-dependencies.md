@@ -1,6 +1,6 @@
 # Bundle
 
-`moon-component bundle` は複数の MoonBit コンポーネントをビルドして `wac plug` で合成する。
+`moon-component compose -c moon-component.toml` は複数の MoonBit コンポーネントをビルドして合成する。
 
 ## 設定
 
@@ -14,6 +14,8 @@ entry = "apps/main/component"
 [dependencies]
 "example:math" = { path = "libs/math/component" }
 "example:strings" = { path = "libs/strings/component" }
+# Prebuilt component (no build)
+# "local:regex/regex" = { component = "path/to/regex_guest.wasm" }
 
 [build]
 target = "wasm"
@@ -23,7 +25,7 @@ release = true
 ## 処理フロー
 
 ```
-moon-component bundle
+moon-component compose -c moon-component.toml
     │
     ├─ Phase 1: Build Dependencies
     │   └─ moon build + componentize (各依存)
@@ -32,20 +34,20 @@ moon-component bundle
     │   └─ moon build + componentize
     │
     └─ Phase 3: Compose
-        └─ wac plug
+        └─ plug (内部処理)
 ```
 
 ## CLI
 
 ```bash
 # ビルド + 合成
-moon-component bundle -c moon-component.toml
+moon-component compose -c moon-component.toml
 
 # ビルドのみ（合成しない）
-moon-component bundle -c moon-component.toml --build-only
+moon-component compose -c moon-component.toml --build-only
 
 # ドライラン
-moon-component bundle -c moon-component.toml --dry-run
+moon-component compose -c moon-component.toml --dry-run
 ```
 
 ## 出力構造
@@ -61,7 +63,7 @@ _build/bundle/
 
 ## 代替: justfile
 
-bundle コマンドを使わず justfile で同じことができる:
+compose を使わず justfile で同じことができる:
 
 ```just
 example-compose:
@@ -83,9 +85,5 @@ example-compose:
         -w apps/main/component/wit \
         -o _build/main.wasm
 
-    wac plug \
-        --plug _build/math.wasm \
-        --plug _build/strings.wasm \
-        _build/main.wasm \
-        -o dist/composed.wasm
+    moon-component compose -c moon-component.toml
 ```

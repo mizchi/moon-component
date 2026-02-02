@@ -108,11 +108,14 @@ moon-component componentize _build/wasm/release/build/impl/impl.wasm \
 
 ```bash
 cd examples/regex
-mkdir -p dist
-wac plug \
-  --plug guest-rust/target/wasm32-wasip1/release/regex_guest.wasm \
-  host-moonbit/host.component.wasm \
-  -o dist/regex-app.wasm
+moon-component compose -c moon-component.toml
+```
+
+`moon-component.toml` では Rust guest の component を依存として指定している:
+
+```toml
+[dependencies]
+"local:regex/regex" = { component = "guest-rust/target/wasm32-wasip1/release/regex_guest.wasm" }
 ```
 
 ```bash
@@ -127,15 +130,13 @@ wasmtime run --invoke 'run("[a-z]+", "hello 123", "X")' dist/regex-app.wasm
 ## 5) MoonBit guest に置き換える
 
 同じ WIT を使って MoonBit で guest を実装し、
-`wac plug` の差し替えだけで比較する。
+`moon-component.toml` の差し替えだけで比較する。
 
 例:
 ```
 # Rust guest -> MoonBit guest に差し替え
-wac plug \
-  --plug guest-moonbit/guest.component.wasm \
-  host-moonbit/host.component.wasm \
-  -o dist/regex-app.moonbit.wasm
+# moon-component.toml の component パスを差し替える
+moon-component compose -c moon-component.toml
 ```
 
 同じ `wasmtime run` で結果が一致すれば移植完了。
@@ -147,4 +148,3 @@ wac plug \
 - Host を MoonBit にしておくと、移植後も同じ呼び出し経路で比較できる
 - `resolve-json` で WIT の解決結果を確認できる
 - `wasmtime run --invoke ...` はデバッグに便利
-
