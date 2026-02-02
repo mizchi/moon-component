@@ -154,38 +154,41 @@ test-integration: test-rust-host test-zig-host test-swift-host
 test-integration-all: test-rust-host test-zig-host test-swift-host test-scala-host test-jco-host
     @echo "All integration tests (including Scala and jco) passed!"
 
-# Release workflow (format, update interfaces, build JS assets, package native binary)
-release os arch: info fmt npm-build
-    ./tools/dist/package.sh {{os}} {{arch}}
-
-# Update moon.mod.json version
-release-version version:
-    #!/usr/bin/env python3
-    import json
-    import sys
-
-    path = "moon.mod.json"
-    raw = sys.argv[1]
-    version = raw[1:] if raw.startswith("v") else raw
-
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    data["version"] = version
-
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=True)
-        f.write("\n")
-
-# Create git tag (vX.Y.Z)
-release-tag version:
+# Release: bump version, format, build assets, package, commit, tag
+release version os arch:
     #!/usr/bin/env bash
     set -euo pipefail
+
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "Working tree is not clean. Commit or stash before release." >&2
+        exit 1
+    fi
+
     ver="{{version}}"
     ver="${ver#v}"
-    git tag -a "v${ver}" -m "v${ver}"
 
-# Convenience: update version + tag
-release-prep version:
-    just release-version {{version}}
-    just release-tag {{version}}
+    python3 - "$ver" <<'PY'
+import json
+import sys
+
+path = "moon.mod.json"
+version = sys.argv[1]
+
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+data["version"] = version
+
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2, ensure_ascii=True)
+    f.write("\n")
+PY
+
+    moon info
+    moon fmt
+    ./tools/npm/build.sh
+    ./tools/dist/package.sh {{os}} {{arch}}
+
+    git add -A
+    git commit -m "Release v${ver}"
+    git tag -a "v${ver}" -m "v${ver}"
