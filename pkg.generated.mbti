@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/moon_component"
+package "mizchi/wit.mbt"
 
 // Values
 pub fn fib(Int) -> Int64

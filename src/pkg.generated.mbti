@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/moon_component/src"
+package "mizchi/wit.mbt/src"
 
 import {
-  "mizchi/moon_component/src/resolve",
+  "mizchi/wit.mbt/src/resolve",
 }
 
 // Values

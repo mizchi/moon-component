@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/moon_component/src/resolve"
+package "mizchi/wit.mbt/src/resolve"
 
 import {
   "moonbitlang/core/json",

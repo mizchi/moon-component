@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/moon_component/src/cabi"
+package "mizchi/wit.mbt/src/cabi"
 
 // Values
 pub fn cabi_get_memory() -> Array[Byte]
