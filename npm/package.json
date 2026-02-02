@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mizchi/moon-component"
+    "url": "git+https://github.com/mizchi/moon-component.git"
   },
   "homepage": "https://github.com/mizchi/moon-component",
   "bin": {
