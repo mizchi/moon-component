@@ -154,8 +154,8 @@ test-integration: test-rust-host test-zig-host test-swift-host
 test-integration-all: test-rust-host test-zig-host test-swift-host test-scala-host test-jco-host
     @echo "All integration tests (including Scala and jco) passed!"
 
-# Release: bump version, format, build assets, package, commit, tag
-release version os arch:
+# Local release prep: bump version, format, build npm assets, commit, tag
+release-local version:
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -187,8 +187,11 @@ PY
     moon info
     moon fmt
     ./tools/npm/build.sh
-    ./tools/dist/package.sh {{os}} {{arch}}
 
     git add -A
     git commit -m "Release v${ver}"
     git tag -a "v${ver}" -m "v${ver}"
+
+# CI release: build artifacts only
+release-ci os arch:
+    ./tools/dist/package.sh {{os}} {{arch}}
