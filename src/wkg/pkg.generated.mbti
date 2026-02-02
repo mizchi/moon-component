@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/wit.mbt/src/wkg"
+package "mizchi/moon_component/src/wkg"
 
 // Values
 pub fn generate_fetch_script(Array[PackageRef], String) -> String

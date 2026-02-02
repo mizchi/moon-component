@@ -2,7 +2,7 @@
   "is-main": true,
   "import": [
     {
-      "path": "mizchi/wit.mbt",
+      "path": "mizchi/moon_component",
       "alias": "lib"
     }
   ]
