@@ -49,6 +49,10 @@ fmt:
     moon fmt
     cargo fmt --manifest-path tools/moon-component/Cargo.toml
 
+# Update generated interface files
+info:
+    moon info
+
 # Check code
 check:
     moon check
@@ -149,3 +153,7 @@ test-integration: test-rust-host test-zig-host test-swift-host
 # Run all integration tests including Scala and jco (requires sbt, pnpm)
 test-integration-all: test-rust-host test-zig-host test-swift-host test-scala-host test-jco-host
     @echo "All integration tests (including Scala and jco) passed!"
+
+# Release workflow (format, update interfaces, build JS assets, package native binary)
+release os arch: info fmt npm-build
+    ./tools/dist/package.sh {{os}} {{arch}}
