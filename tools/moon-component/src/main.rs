@@ -5,6 +5,8 @@ use std::process::Command;
 use wasm_encoder::Section;
 use wit_parser::Resolve;
 
+mod dce;
+
 #[derive(Parser)]
 #[command(name = "moon-component")]
 #[command(about = "Generate MoonBit bindings for WebAssembly components")]
@@ -265,6 +267,10 @@ enum Commands {
         /// Show generated WAC without executing (config mode only)
         #[arg(long)]
         dry_run: bool,
+
+        /// Apply component DCE after compose (experimental; currently no-op)
+        #[arg(long)]
+        dce: bool,
     },
 
     /// Verify that moon.pkg.json exports match WIT world exports
@@ -397,17 +403,18 @@ fn main() -> Result<()> {
             output,
             build_only,
             dry_run,
+            dce,
         } => {
             if let Some(cfg) = config {
                 if wac_file.is_some() {
                     bail!("compose: use either <wac_file> or --config, not both");
                 }
-                cmd_bundle(&cfg, build_only, dry_run)
+                cmd_bundle(&cfg, build_only, dry_run, dce)
             } else if let Some(wac) = wac_file {
                 if build_only || dry_run {
                     bail!("compose: --build-only/--dry-run require --config");
                 }
-                cmd_compose(&wac, &output)
+                cmd_compose(&wac, &output, dce)
             } else {
                 bail!("compose: missing <wac_file> or --config");
             }
@@ -2414,8 +2421,9 @@ fn cmd_plug(socket: &Path, plugs: &[PathBuf], output: &Path) -> Result<()> {
     Ok(())
 }
 
-fn cmd_compose(wac_file: &Path, output: &Path) -> Result<()> {
-    run_wac_compose(wac_file, output, None)
+fn cmd_compose(wac_file: &Path, output: &Path, dce: bool) -> Result<()> {
+    run_wac_compose(wac_file, output, None)?;
+    dce::apply_component_dce(output, dce)
 }
 
 fn run_wac_compose(wac_file: &Path, output: &Path, deps_dir: Option<&Path>) -> Result<()> {
@@ -2648,7 +2656,7 @@ fn resolve_moonbit_dep(
     Ok(())
 }
 
-fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()> {
+fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool, dce: bool) -> Result<()> {
     // Read config file
     let config_content = std::fs::read_to_string(config_path)
         .with_context(|| format!("failed to read config: {}", config_path.display()))?;
@@ -2721,6 +2729,7 @@ fn cmd_bundle(config_path: &Path, build_only: bool, dry_run: bool) -> Result<()>
 
     println!("Composing components...");
     run_wac_plug(&entry_wasm, &plug_paths, &output_path)?;
+    dce::apply_component_dce(&output_path, dce)?;
 
     println!("\n=== Bundle Complete ===");
     println!("Output: {}", output_path.display());
