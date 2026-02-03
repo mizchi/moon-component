@@ -387,6 +387,529 @@ fn resolve_instance_exports_from_component_index(
 }
 
 ///|
+fn check_type_bounds(
+  a : TypeBounds,
+  b : TypeBounds,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  type_map : Map[String, String],
+  res_map : Map[String, String],
+  visiting : Map[String, Bool],
+) -> Result[Unit, String] {
+  match (a, b) {
+    (TypeBounds::SubResource, TypeBounds::SubResource) => Ok(())
+    (TypeBounds::Eq(a_idx), TypeBounds::Eq(b_idx)) =>
+      check_type_index_pair(
+        a_idx, b_idx, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    _ => Err("type bounds mismatch")
+  }
+}
+
+///|
+fn check_type_index_pair(
+  a_idx : UInt,
+  b_idx : UInt,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  type_map : Map[String, String],
+  res_map : Map[String, String],
+  visiting : Map[String, Bool],
+) -> Result[Unit, String] {
+  let key_a = space_key(space_a, a_idx.reinterpret_as_int())
+  let key_b = space_key(space_b, b_idx.reinterpret_as_int())
+  match type_map.get(key_a) {
+    Some(existing) =>
+      if existing != key_b {
+        return Err("type index mapping mismatch")
+      }
+    None => type_map.set(key_a, key_b)
+  }
+  let visit_key = key_a + "->" + key_b
+  if visiting.contains(visit_key) {
+    return Ok(())
+  }
+  visiting.set(visit_key, true)
+  let def_a = resolve_entry(ctx_a, space_a, a_idx)
+  let def_b = resolve_entry(ctx_b, space_b, b_idx)
+  match (def_a, def_b) {
+    (
+      Some((ComponentTypeDef::Defined(val_a), space_a2)),
+      Some((ComponentTypeDef::Defined(val_b), space_b2)),
+    ) =>
+      check_val_type(
+        val_a, val_b, ctx_a, ctx_b, space_a2, space_b2, type_map, res_map, visiting,
+      )
+    (
+      Some((ComponentTypeDef::Resource, _)),
+      Some((ComponentTypeDef::Resource, _)),
+    ) => Ok(())
+    (
+      Some((ComponentTypeDef::Func(fn_a), space_a2)),
+      Some((ComponentTypeDef::Func(fn_b), space_b2)),
+    ) =>
+      check_func_type(
+        fn_a, fn_b, ctx_a, ctx_b, space_a2, space_b2, type_map, res_map, visiting,
+      )
+    (
+      Some((ComponentTypeDef::Instance(inst_a), space_a2)),
+      Some((ComponentTypeDef::Instance(inst_b), space_b2)),
+    ) => {
+      let inst_space_a = build_instance_space(inst_a.entries, space_a2)
+      let inst_space_b = build_instance_space(inst_b.entries, space_b2)
+      check_instance_type(
+        inst_a, inst_b, ctx_a, ctx_b, inst_space_a, inst_space_b,
+      )
+    }
+    _ => Err("type definition mismatch")
+  }
+}
+
+///|
+fn check_val_type(
+  a : ComponentValType,
+  b : ComponentValType,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  type_map : Map[String, String],
+  res_map : Map[String, String],
+  visiting : Map[String, Bool],
+) -> Result[Unit, String] {
+  match (a, b) {
+    (ComponentValType::Primitive(pa), ComponentValType::Primitive(pb)) =>
+      if pa == pb {
+        Ok(())
+      } else {
+        Err("primitive mismatch")
+      }
+    (ComponentValType::List(ta), ComponentValType::List(tb)) =>
+      check_val_type(
+        ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    (ComponentValType::Map(ka, va), ComponentValType::Map(kb, vb)) => {
+      match
+        check_val_type(
+          ka, kb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+        ) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+      check_val_type(
+        va, vb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    }
+    (ComponentValType::Record(ra), ComponentValType::Record(rb)) => {
+      if ra.length() != rb.length() {
+        return Err("record length mismatch")
+      }
+      for i in 0..<ra.length() {
+        let fa = ra[i]
+        let fb = rb[i]
+        if fa.name != fb.name {
+          return Err("record field name mismatch")
+        }
+        match
+          check_val_type(
+            fa.type_,
+            fb.type_,
+            ctx_a,
+            ctx_b,
+            space_a,
+            space_b,
+            type_map,
+            res_map,
+            visiting,
+          ) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+      Ok(())
+    }
+    (ComponentValType::Variant(va), ComponentValType::Variant(vb)) => {
+      if va.length() != vb.length() {
+        return Err("variant length mismatch")
+      }
+      for i in 0..<va.length() {
+        let ca = va[i]
+        let cb = vb[i]
+        if ca.name != cb.name {
+          return Err("variant case name mismatch")
+        }
+        match (ca.type_, cb.type_) {
+          (None, None) => ()
+          (Some(ta), Some(tb)) =>
+            match
+              check_val_type(
+                ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+              ) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
+          _ => return Err("variant payload mismatch")
+        }
+      }
+      Ok(())
+    }
+    (ComponentValType::Tuple(ta), ComponentValType::Tuple(tb)) => {
+      if ta.length() != tb.length() {
+        return Err("tuple length mismatch")
+      }
+      for i in 0..<ta.length() {
+        match
+          check_val_type(
+            ta[i],
+            tb[i],
+            ctx_a,
+            ctx_b,
+            space_a,
+            space_b,
+            type_map,
+            res_map,
+            visiting,
+          ) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+      Ok(())
+    }
+    (ComponentValType::Flags(na), ComponentValType::Flags(nb)) =>
+      if na == nb {
+        Ok(())
+      } else {
+        Err("flags mismatch")
+      }
+    (ComponentValType::Enum(na), ComponentValType::Enum(nb)) =>
+      if na == nb {
+        Ok(())
+      } else {
+        Err("enum mismatch")
+      }
+    (ComponentValType::Option(ta), ComponentValType::Option(tb)) =>
+      check_val_type(
+        ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    (ComponentValType::Result(oka, erra), ComponentValType::Result(okb, errb)) => {
+      match (oka, okb) {
+        (None, None) => ()
+        (Some(ta), Some(tb)) =>
+          match
+            check_val_type(
+              ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+            ) {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+        _ => return Err("result ok mismatch")
+      }
+      match (erra, errb) {
+        (None, None) => ()
+        (Some(ta), Some(tb)) =>
+          match
+            check_val_type(
+              ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+            ) {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
+        _ => return Err("result err mismatch")
+      }
+      Ok(())
+    }
+    (ComponentValType::Own(a_idx), ComponentValType::Own(b_idx)) =>
+      check_resource_handle(
+        a_idx, b_idx, ctx_a, ctx_b, space_a, space_b, res_map,
+      )
+    (ComponentValType::Borrow(a_idx), ComponentValType::Borrow(b_idx)) =>
+      check_resource_handle(
+        a_idx, b_idx, ctx_a, ctx_b, space_a, space_b, res_map,
+      )
+    (ComponentValType::TypeIndex(a_idx), ComponentValType::TypeIndex(b_idx)) =>
+      check_type_index_pair(
+        a_idx, b_idx, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    _ => Err("value type mismatch")
+  }
+}
+
+///|
+fn check_resource_handle(
+  a_idx : UInt,
+  b_idx : UInt,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  res_map : Map[String, String],
+) -> Result[Unit, String] {
+  let key_a = space_key(space_a, a_idx.reinterpret_as_int())
+  let key_b = space_key(space_b, b_idx.reinterpret_as_int())
+  match res_map.get(key_a) {
+    Some(existing) =>
+      if existing != key_b {
+        return Err("resource mapping mismatch")
+      }
+    None => res_map.set(key_a, key_b)
+  }
+  let res_a = resolve_entry(ctx_a, space_a, a_idx)
+  let res_b = resolve_entry(ctx_b, space_b, b_idx)
+  match (res_a, res_b) {
+    (
+      Some((ComponentTypeDef::Resource, _)),
+      Some((ComponentTypeDef::Resource, _)),
+    ) => Ok(())
+    _ => Err("resource type mismatch")
+  }
+}
+
+///|
+fn check_func_type(
+  a : ComponentFuncType,
+  b : ComponentFuncType,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  type_map : Map[String, String],
+  res_map : Map[String, String],
+  visiting : Map[String, Bool],
+) -> Result[Unit, String] {
+  if a.params.length() != b.params.length() {
+    return Err("param count mismatch")
+  }
+  if a.results.length() != b.results.length() {
+    return Err("result count mismatch")
+  }
+  for i in 0..<a.params.length() {
+    let pa = a.params[i]
+    let pb = b.params[i]
+    match
+      check_val_type(
+        pa.type_,
+        pb.type_,
+        ctx_a,
+        ctx_b,
+        space_a,
+        space_b,
+        type_map,
+        res_map,
+        visiting,
+      ) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+  }
+  for i in 0..<a.results.length() {
+    let ra = a.results[i]
+    let rb = b.results[i]
+    match
+      check_val_type(
+        ra.type_,
+        rb.type_,
+        ctx_a,
+        ctx_b,
+        space_a,
+        space_b,
+        type_map,
+        res_map,
+        visiting,
+      ) {
+      Ok(_) => ()
+      Err(e) => return Err(e)
+    }
+  }
+  Ok(())
+}
+
+///|
+fn check_instance_type(
+  a : InstanceTypeDef,
+  b : InstanceTypeDef,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+) -> Result[Unit, String] {
+  let export_map_b : Map[String, InstanceExport] = {}
+  for exp in b.exports {
+    export_map_b.set(exp.name.to_string(), exp)
+  }
+  let matched : Map[String, Bool] = {}
+  for exp_a in a.exports {
+    match export_map_b.get(exp_a.name.to_string()) {
+      Some(exp_b) => {
+        matched.set(exp_a.name.to_string(), true)
+        let type_map : Map[String, String] = {}
+        let res_map : Map[String, String] = {}
+        let visiting : Map[String, Bool] = {}
+        match
+          check_type_ref(
+            exp_a.type_ref,
+            exp_b.type_ref,
+            ctx_a,
+            ctx_b,
+            space_a,
+            space_b,
+            type_map,
+            res_map,
+            visiting,
+          ) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+      None => return Err("instance export missing")
+    }
+  }
+  for name, _ in export_map_b {
+    if not(matched.contains(name)) {
+      return Err("instance export extra")
+    }
+  }
+  Ok(())
+}
+
+///|
+fn check_type_ref(
+  a : ComponentTypeRef,
+  b : ComponentTypeRef,
+  ctx_a : TypeResolveContext,
+  ctx_b : TypeResolveContext,
+  space_a : TypeSpace,
+  space_b : TypeSpace,
+  type_map : Map[String, String],
+  res_map : Map[String, String],
+  visiting : Map[String, Bool],
+) -> Result[Unit, String] {
+  match (a, b) {
+    (ComponentTypeRef::Func(a_idx), ComponentTypeRef::Func(b_idx)) =>
+      match
+        (
+          resolve_entry(ctx_a, space_a, a_idx),
+          resolve_entry(ctx_b, space_b, b_idx),
+        ) {
+        (
+          Some((ComponentTypeDef::Func(fa), sa)),
+          Some((ComponentTypeDef::Func(fb), sb)),
+        ) =>
+          check_func_type(
+            fa, fb, ctx_a, ctx_b, sa, sb, type_map, res_map, visiting,
+          )
+        _ => Err("function type mismatch")
+      }
+    (ComponentTypeRef::Value(va), ComponentTypeRef::Value(vb)) =>
+      check_val_type(
+        va, vb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    (ComponentTypeRef::Type(ta), ComponentTypeRef::Type(tb)) =>
+      check_type_bounds(
+        ta, tb, ctx_a, ctx_b, space_a, space_b, type_map, res_map, visiting,
+      )
+    (ComponentTypeRef::Instance(a_idx), ComponentTypeRef::Instance(b_idx)) =>
+      match
+        (
+          resolve_entry(ctx_a, space_a, a_idx),
+          resolve_entry(ctx_b, space_b, b_idx),
+        ) {
+        (
+          Some((ComponentTypeDef::Instance(inst_a), sa)),
+          Some((ComponentTypeDef::Instance(inst_b), sb)),
+        ) => {
+          let inst_space_a = build_instance_space(inst_a.entries, sa)
+          let inst_space_b = build_instance_space(inst_b.entries, sb)
+          check_instance_type(
+            inst_a, inst_b, ctx_a, ctx_b, inst_space_a, inst_space_b,
+          )
+        }
+        _ => Err("instance type mismatch")
+      }
+    (ComponentTypeRef::Module(_), ComponentTypeRef::Module(_)) => Ok(())
+    (ComponentTypeRef::Component(_), ComponentTypeRef::Component(_)) => Ok(())
+    _ => Err("type ref mismatch")
+  }
+}
+
+///|
+fn check_plug_import_export_type(
+  socket_detail : ComponentDetail,
+  plug_detail : ComponentDetail,
+  socket_import : ComponentImportDetail,
+  plug_export : ComponentExportDetail,
+) -> Result[Unit, String] {
+  if socket_import.kind != plug_export.kind {
+    return Err("extern kind mismatch")
+  }
+  let socket_ctx = {
+    detail: socket_detail,
+    global_space: build_global_space(socket_detail.types),
+    instance_cache: {},
+  }
+  let plug_ctx = {
+    detail: plug_detail,
+    global_space: build_global_space(plug_detail.types),
+    instance_cache: {},
+  }
+  match plug_export.type_ref {
+    Some(type_ref) => {
+      let type_map : Map[String, String] = {}
+      let res_map : Map[String, String] = {}
+      let visiting : Map[String, Bool] = {}
+      check_type_ref(
+        socket_import.type_ref,
+        type_ref,
+        socket_ctx,
+        plug_ctx,
+        socket_ctx.global_space,
+        plug_ctx.global_space,
+        type_map,
+        res_map,
+        visiting,
+      )
+    }
+    None =>
+      match (socket_import.type_ref, plug_export.kind) {
+        (ComponentTypeRef::Instance(inst_idx), ExternKind::Instance) =>
+          match resolve_entry(socket_ctx, socket_ctx.global_space, inst_idx) {
+            Some((ComponentTypeDef::Instance(inst_a), space_a)) => {
+              let inst_space_a = build_instance_space(inst_a.entries, space_a)
+              match
+                resolve_instance_exports_from_instance_index(
+                  plug_ctx.detail,
+                  plug_export.index,
+                  plug_ctx.global_space,
+                ) {
+                Ok(inst_b) => {
+                  let inst_def_b = {
+                    exports: inst_b.exports,
+                    entries: inst_b.space.entries,
+                  }
+                  check_instance_type(
+                    inst_a,
+                    inst_def_b,
+                    socket_ctx,
+                    plug_ctx,
+                    inst_space_a,
+                    inst_b.space,
+                  )
+                }
+                Err(e) => Err(e)
+              }
+            }
+            _ => Ok(())
+          }
+        _ => Ok(())
+      }
+  }
+}
+
+///|
 fn check_func_signature(
   func_name : String,
   func : @wit.RFunction,
@@ -1235,5 +1758,79 @@ pub fn check_component_targets(
     Err(errors.join("\n"))
   } else {
     Ok(())
+  }
+}
+
+///|
+test "resolve instance alias export" {
+  let def = ComponentTypeDef::Defined(
+    ComponentValType::Primitive(PrimitiveType::U32),
+  )
+  let detail = {
+    types: [def],
+    imports: [],
+    exports: [],
+    components: [],
+    instances: [],
+    imported_components: [],
+    imported_instances: [],
+  }
+  let global_space = build_global_space(detail.types)
+  let instance_cache : Map[UInt, InstanceExportSet] = {}
+  let name : Bytes = b"foo"
+  let export_set = {
+    exports: [{ name, type_ref: ComponentTypeRef::Type(TypeBounds::Eq(0U)) }],
+    space: global_space,
+  }
+  instance_cache.set(0U, export_set)
+  let ctx = { detail, global_space, instance_cache }
+  let local_space = build_instance_space(
+    [InstanceTypeEntry::Alias(InstanceAliasTarget::Export(0U, name))],
+    global_space,
+  )
+  match resolve_entry(ctx, local_space, 0U) {
+    Some(
+      (
+        ComponentTypeDef::Defined(
+          ComponentValType::Primitive(PrimitiveType::U32)
+        ),
+        _,
+      )
+    ) => ()
+    _ => fail("expected alias export to resolve")
+  }
+}
+
+///|
+test "resolve instance alias outer" {
+  let def = ComponentTypeDef::Defined(
+    ComponentValType::Primitive(PrimitiveType::U32),
+  )
+  let detail = {
+    types: [def],
+    imports: [],
+    exports: [],
+    components: [],
+    instances: [],
+    imported_components: [],
+    imported_instances: [],
+  }
+  let global_space = build_global_space(detail.types)
+  let instance_cache : Map[UInt, InstanceExportSet] = {}
+  let ctx = { detail, global_space, instance_cache }
+  let local_space = build_instance_space(
+    [InstanceTypeEntry::Alias(InstanceAliasTarget::Outer(0U, 0U))],
+    global_space,
+  )
+  match resolve_entry(ctx, local_space, 0U) {
+    Some(
+      (
+        ComponentTypeDef::Defined(
+          ComponentValType::Primitive(PrimitiveType::U32)
+        ),
+        _,
+      )
+    ) => ()
+    _ => fail("expected alias outer to resolve")
   }
 }

@@ -2,6 +2,7 @@
 suberror PlugError {
   Parse(ParseError)
   Unsupported(String)
+  TypeMismatch(String)
   NoPlugHappened
 } derive(Show)
 
@@ -9,6 +10,7 @@ suberror PlugError {
 priv struct PlugExportRef {
   plug_idx : Int
   name : Bytes
+  export_index : Int
 }
 
 ///|
@@ -100,9 +102,10 @@ fn match_plug_export(
 ) -> PlugExportRef? {
   for plug_idx in 0..<plugs.length() {
     let exports = plugs[plug_idx]
-    for exp in exports {
+    for export_index in 0..<exports.length() {
+      let exp = exports[export_index]
       if exp.kind == kind && bytes_eq(exp.name, name) {
-        return Some({ plug_idx, name: exp.name })
+        return Some({ plug_idx, name: exp.name, export_index })
       }
     }
   }
@@ -125,6 +128,14 @@ fn parse_info(bytes : Bytes) -> Result[ComponentInfo, PlugError] {
 }
 
 ///|
+fn parse_detail(bytes : Bytes) -> Result[ComponentDetail, PlugError] {
+  match parse_component_detail(bytes) {
+    Ok(v) => Ok(v)
+    Err(e) => Err(PlugError::Parse(e))
+  }
+}
+
+///|
 /// Compose a socket component with plug components.
 pub fn plug_components(
   socket_bytes : Bytes,
@@ -134,9 +145,18 @@ pub fn plug_components(
     Ok(v) => v
     Err(e) => return Err(e)
   }
+  let socket_detail = match parse_detail(socket_bytes) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
   let plug_infos : Array[ComponentInfo] = []
+  let plug_details : Array[ComponentDetail] = []
   for plug in plug_bytes {
     let info = match parse_info(plug) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    let detail = match parse_detail(plug) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -148,6 +168,7 @@ pub fn plug_components(
       )
     }
     plug_infos.push(info)
+    plug_details.push(detail)
   }
   let plug_exports : Array[Array[ExportInfo]] = []
   for info in plug_infos {
@@ -174,6 +195,29 @@ pub fn plug_components(
   }
   if not(used_plug) {
     return Err(PlugError::NoPlugHappened)
+  }
+  for i in 0..<plans.length() {
+    match plans[i].source {
+      Plug(plug_ref) => {
+        let import_detail = socket_detail.imports[i]
+        let plug_detail = plug_details[plug_ref.plug_idx]
+        let export_detail = plug_detail.exports[plug_ref.export_index]
+        match
+          check_plug_import_export_type(
+            socket_detail, plug_detail, import_detail, export_detail,
+          ) {
+          Ok(_) => ()
+          Err(msg) =>
+            return Err(
+              PlugError::TypeMismatch(
+                "import `\{import_detail.name.to_string()}` vs export `\{export_detail.name.to_string()}`: " +
+                msg,
+              ),
+            )
+        }
+      }
+      Forwarded(_) => ()
+    }
   }
 
   // Validate that all exports used are supported
