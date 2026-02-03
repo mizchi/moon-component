@@ -2,9 +2,17 @@
 /// CLI entry point for moon-component
 fn main {
   let args = @sys.get_cli_args()
+  if args.length() >= 2 && args[1] == "plug" {
+    cmd_plug(args)
+    return
+  }
+  if args.length() >= 2 && args[1] == "targets" {
+    cmd_targets(args)
+    return
+  }
   if args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json|wit-path> [options]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
@@ -185,6 +193,175 @@ fn main {
   } else {
     println(msg)
   }
+}
+
+///|
+fn cmd_plug(args : Array[String]) -> Unit {
+  if args.length() < 3 {
+    plug_usage()
+    @sys.exit(1)
+  }
+  let socket_path = args[2]
+  let plugs : Array[String] = []
+  let mut output_path : String? = None
+  let mut socket_wit_path : String? = None
+  let plug_wit_paths : Array[String] = []
+  let mut i = 3
+  while i < args.length() {
+    if args[i] == "--plug" && i + 1 < args.length() {
+      plugs.push(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--socket-wit" && i + 1 < args.length() {
+      socket_wit_path = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--plug-wit" && i + 1 < args.length() {
+      plug_wit_paths.push(args[i + 1])
+      i = i + 2
+    } else if (args[i] == "-o" || args[i] == "--output") &&
+      i + 1 < args.length() {
+      output_path = Some(args[i + 1])
+      i = i + 2
+    } else {
+      i = i + 1
+    }
+  }
+  if plugs.length() == 0 || output_path is None {
+    plug_usage()
+    @sys.exit(1)
+  }
+  if socket_wit_path is Some(_) || plug_wit_paths.length() > 0 {
+    if socket_wit_path is None || plug_wit_paths.length() != plugs.length() {
+      println(
+        "Error: --socket-wit and --plug-wit must be specified together (one per plug).",
+      )
+      @sys.exit(1)
+    }
+  }
+  let socket_bytes = @fs.read_file_to_bytes(socket_path) catch {
+    e => {
+      println("Error reading socket: " + e.to_string())
+      abort("exit")
+    }
+  }
+  let plug_bytes : Array[Bytes] = []
+  for path in plugs {
+    let bytes = @fs.read_file_to_bytes(path) catch {
+      e => {
+        println("Error reading plug: " + e.to_string())
+        abort("exit")
+      }
+    }
+    plug_bytes.push(bytes)
+  }
+  if socket_wit_path is Some(path) {
+    let socket_res = match @wit.resolve_path(path) {
+      Ok(v) => v
+      Err(e) => {
+        println("Error resolving socket WIT: " + e.to_string())
+        @sys.exit(1)
+        abort("exit")
+      }
+    }
+    let plug_resolves : Array[@wit.ResolveInput] = []
+    for wit_path in plug_wit_paths {
+      let res = match @wit.resolve_path(wit_path) {
+        Ok(v) => v
+        Err(e) => {
+          println("Error resolving plug WIT: " + e.to_string())
+          @sys.exit(1)
+          abort("exit")
+        }
+      }
+      plug_resolves.push(res)
+    }
+    match @component.check_plug_wit(socket_res, plug_resolves) {
+      Ok(_) => ()
+      Err(msg) => {
+        println("WIT check error: " + msg)
+        @sys.exit(1)
+      }
+    }
+  }
+  let result = @component.plug_components(socket_bytes, plug_bytes)
+  match result {
+    Ok(bytes) =>
+      match output_path {
+        Some(out) =>
+          @fs.write_bytes_to_file(out, bytes) catch {
+            e => {
+              println("Error writing output: " + e.to_string())
+              @sys.exit(1)
+            }
+          }
+        None => ()
+      }
+    Err(e) => {
+      println("Plug error: " + e.to_string())
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
+fn plug_usage() -> Unit {
+  println(
+    "Usage: moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm> --socket-wit <wit-dir> --plug-wit <wit-dir>...",
+  )
+}
+
+///|
+fn cmd_targets(args : Array[String]) -> Unit {
+  if args.length() < 4 {
+    targets_usage()
+    @sys.exit(1)
+  }
+  let component_path = args[2]
+  let wit_path = args[3]
+  let mut world_name : String? = None
+  let mut i = 4
+  while i < args.length() {
+    if args[i] == "--world" && i + 1 < args.length() {
+      world_name = Some(args[i + 1])
+      i = i + 2
+    } else {
+      i = i + 1
+    }
+  }
+  let component_bytes = @fs.read_file_to_bytes(component_path) catch {
+    e => {
+      println("Error reading component: " + e.to_string())
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  let resolved_result : Result[@wit.ResolveInput, @wit.ParseError] = match
+    world_name {
+    Some(name) => @wit.resolve_path(wit_path, world=name)
+    None => @wit.resolve_path(wit_path)
+  }
+  let resolved = match resolved_result {
+    Ok(v) => v
+    Err(e) => {
+      println("Error resolving WIT: " + e.to_string())
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  match @component.check_component_targets(component_bytes, resolved) {
+    Ok(_) => println("OK")
+    Err(e) => {
+      println("Error: " + e)
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+}
+
+///|
+fn targets_usage() -> Unit {
+  println(
+    "Usage: moon-component targets <component.wasm> <wit-path> [--world <name>]\nNote: validates names/kinds and function types; instance types are best-effort.",
+  )
 }
 
 ///|

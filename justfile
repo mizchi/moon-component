@@ -44,6 +44,14 @@ wit-tests-update:
 wit-tests-run *args:
     ./tools/wit-tests/run.py {{args}}
 
+# Update component-model reference tests
+component-model-tests-update:
+    ./tools/component-model-tests/update.sh
+
+# Run component-model reference tests (requires wasmtime)
+component-model-tests-run *args:
+    ./tools/component-model-tests/run.py {{args}}
+
 # Format code
 fmt:
     moon fmt
@@ -84,6 +92,16 @@ example-reverse-check:
 # Build types-test example
 example-types-test:
     moon build --target wasm --release --directory examples/tests/types-test
+
+# Build core-module plug example
+example-core-module-build:
+    wasm-tools parse examples/core-module/socket.wat -o examples/core-module/socket.wasm
+    wasm-tools parse examples/core-module/plug.wat -o examples/core-module/plug.wasm
+
+# Compose core-module plug example
+example-core-module-compose: example-core-module-build
+    moon run src/main -- plug examples/core-module/socket.wasm --plug examples/core-module/plug.wasm -o examples/core-module/composed.wasm
+    wasm-tools validate examples/core-module/composed.wasm
 
 # Build rust-guest (reference implementation)
 build-rust-guest:

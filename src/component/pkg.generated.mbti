@@ -1,0 +1,272 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moon_component/src/component"
+
+import {
+  "mizchi/wit",
+}
+
+// Values
+pub fn check_component_targets(Bytes, @wit.ResolveInput) -> Result[Unit, String]
+
+pub fn check_plug_wit(@wit.ResolveInput, Array[@wit.ResolveInput]) -> Result[Unit, String]
+
+pub fn parse_component_detail(Bytes) -> Result[ComponentDetail, ParseError]
+
+pub fn parse_component_info(Bytes) -> Result[ComponentInfo, ParseError]
+
+pub fn plug_components(Bytes, Array[Bytes]) -> Result[Bytes, PlugError]
+
+// Errors
+pub(all) suberror ParseError {
+  UnexpectedEof
+  InvalidMagic
+  UnsupportedVersion
+  InvalidFormat(String)
+  InvalidLayer
+  UnsupportedSection(UInt)
+  InvalidSectionOrder
+  NestedError(String)
+}
+pub impl Show for ParseError
+
+type PlugError
+pub impl Show for PlugError
+
+// Types and methods
+pub(all) struct ComponentDetail {
+  types : Array[ComponentTypeDef]
+  imports : Array[ComponentImportDetail]
+  exports : Array[ComponentExportDetail]
+  components : Array[Bytes]
+  instances : Array[ComponentInstanceDef]
+  imported_components : Array[ComponentTypeRef]
+  imported_instances : Array[ComponentTypeRef]
+}
+pub impl Eq for ComponentDetail
+pub impl Show for ComponentDetail
+
+pub(all) struct ComponentExportDetail {
+  name : Bytes
+  kind : ExternKind
+  index : UInt
+  type_ref : ComponentTypeRef?
+}
+pub impl Eq for ComponentExportDetail
+pub impl Show for ComponentExportDetail
+
+pub(all) enum ComponentExternDesc {
+  Module(UInt)
+  Func(UInt)
+  Value(ComponentValType)
+  Type(TypeBounds)
+  Component(UInt)
+  Instance(UInt)
+}
+pub impl Eq for ComponentExternDesc
+pub impl Show for ComponentExternDesc
+
+pub(all) struct ComponentFuncType {
+  params : Array[ComponentParam]
+  results : Array[ComponentResult]
+}
+pub impl Eq for ComponentFuncType
+pub impl Show for ComponentFuncType
+
+pub(all) struct ComponentImportDetail {
+  name : Bytes
+  kind : ExternKind
+  type_ref : ComponentTypeRef
+}
+pub impl Eq for ComponentImportDetail
+pub impl Show for ComponentImportDetail
+
+pub(all) struct ComponentInfo {
+  imports : Array[ImportInfo]
+  exports : Array[ExportInfo]
+}
+pub impl Eq for ComponentInfo
+pub impl Show for ComponentInfo
+
+pub(all) enum ComponentInstanceDef {
+  Instantiate(UInt)
+  FromExports(Array[ExportInfo])
+}
+pub impl Eq for ComponentInstanceDef
+pub impl Show for ComponentInstanceDef
+
+pub(all) struct ComponentParam {
+  name : Bytes
+  type_ : ComponentValType
+}
+pub impl Eq for ComponentParam
+pub impl Show for ComponentParam
+
+pub(all) struct ComponentResult {
+  name : Bytes?
+  type_ : ComponentValType
+}
+pub impl Eq for ComponentResult
+pub impl Show for ComponentResult
+
+pub(all) enum ComponentTypeDef {
+  Defined(ComponentValType)
+  Func(ComponentFuncType)
+  Instance(InstanceTypeDef)
+  Resource
+  Component
+}
+pub impl Eq for ComponentTypeDef
+pub impl Show for ComponentTypeDef
+
+pub(all) enum ComponentTypeRef {
+  Module(UInt)
+  Func(UInt)
+  Value(ComponentValType)
+  Type(TypeBounds)
+  Component(UInt)
+  Instance(UInt)
+}
+pub impl Eq for ComponentTypeRef
+pub impl Show for ComponentTypeRef
+
+pub(all) enum ComponentValType {
+  Primitive(PrimitiveType)
+  TypeIndex(UInt)
+  List(ComponentValType)
+  Map(ComponentValType, ComponentValType)
+  Record(Array[RecordField])
+  Variant(Array[VariantCase])
+  Tuple(Array[ComponentValType])
+  Flags(Array[Bytes])
+  Enum(Array[Bytes])
+  Option(ComponentValType)
+  Result(ComponentValType?, ComponentValType?)
+  Own(UInt)
+  Borrow(UInt)
+  ErrorContext
+  Future(ComponentValType?)
+  Stream(ComponentValType?)
+  FixedSizeList(ComponentValType, UInt)
+}
+pub impl Eq for ComponentValType
+pub impl Show for ComponentValType
+
+pub(all) struct ExportInfo {
+  name : Bytes
+  kind : ExternKind
+}
+pub impl Eq for ExportInfo
+pub impl Show for ExportInfo
+
+pub(all) enum ExternKind {
+  CoreModule
+  Func
+  Value
+  Type
+  Component
+  Instance
+}
+pub impl Eq for ExternKind
+pub impl Show for ExternKind
+
+pub(all) struct ImportInfo {
+  name : Bytes
+  kind : ExternKind
+  raw_desc : Bytes
+}
+pub impl Eq for ImportInfo
+pub impl Show for ImportInfo
+
+pub(all) enum InstanceAliasTarget {
+  Outer(UInt, UInt)
+  Export(UInt, Bytes)
+  Unknown
+}
+pub impl Eq for InstanceAliasTarget
+pub impl Show for InstanceAliasTarget
+
+pub(all) struct InstanceExport {
+  name : Bytes
+  type_ref : ComponentTypeRef
+}
+pub impl Eq for InstanceExport
+pub impl Show for InstanceExport
+
+pub(all) struct InstanceTypeDef {
+  exports : Array[InstanceExport]
+  entries : Array[InstanceTypeEntry]
+}
+pub impl Eq for InstanceTypeDef
+pub impl Show for InstanceTypeDef
+
+pub(all) enum InstanceTypeEntry {
+  Local(ComponentTypeDef)
+  Alias(InstanceAliasTarget)
+}
+pub impl Eq for InstanceTypeEntry
+pub impl Show for InstanceTypeEntry
+
+pub struct Parser {
+  bytes : Bytes
+  mut pos : Int
+}
+pub fn Parser::eof(Self) -> Bool
+pub fn Parser::get_pos(Self) -> Int
+pub fn Parser::new(Bytes) -> Self
+pub fn Parser::peek_byte(Self) -> Byte?
+pub fn Parser::read_byte(Self) -> Byte raise ParseError
+pub fn Parser::read_bytes(Self, UInt) -> BytesView raise ParseError
+pub fn Parser::read_i32_leb128(Self) -> Int raise ParseError
+pub fn Parser::read_i64_leb128(Self) -> Int64 raise ParseError
+pub fn Parser::read_name(Self) -> Bytes raise ParseError
+pub fn Parser::read_u32_leb128(Self) -> UInt raise ParseError
+pub fn Parser::read_u64_leb128(Self) -> UInt64 raise ParseError
+pub fn Parser::remaining(Self) -> Int
+pub fn Parser::set_pos(Self, Int) -> Unit
+pub fn Parser::skip(Self, Int) -> Unit raise ParseError
+pub fn Parser::slice(Self, Int, Int) -> Bytes raise ParseError
+
+pub(all) enum PrimitiveType {
+  Bool
+  S8
+  U8
+  S16
+  U16
+  S32
+  U32
+  S64
+  U64
+  F32
+  F64
+  Char
+  String
+}
+pub impl Eq for PrimitiveType
+pub impl Show for PrimitiveType
+
+pub(all) struct RecordField {
+  name : Bytes
+  type_ : ComponentValType
+}
+pub impl Eq for RecordField
+pub impl Show for RecordField
+
+pub(all) enum TypeBounds {
+  Eq(UInt)
+  SubResource
+}
+pub impl Eq for TypeBounds
+pub impl Show for TypeBounds
+
+pub(all) struct VariantCase {
+  name : Bytes
+  type_ : ComponentValType?
+  refines : UInt?
+}
+pub impl Eq for VariantCase
+pub impl Show for VariantCase
+
+// Type aliases
+
+// Traits
+

@@ -29,3 +29,10 @@ npm/node_modules/
 # wit-parser test suite (fetched from wasm-tools)
 tests/wit-parser/ui/
 tests/wit-parser/.wasm-tools/
+
+# component-model reference tests (cache)
+tests/.component-model/
+
+# Local wasmtime builds
+tools/wasmtime/
+tools/wasmtime-main/

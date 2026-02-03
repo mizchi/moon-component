@@ -367,3 +367,35 @@ just test-scala-host
 just test-zig-host
 just test-jco-host
 ```
+
+## Component-Model Reference Tests
+
+```bash
+# Update the component-model reference tests
+just component-model-tests-update
+
+# Run all component-model reference tests (requires wasmtime)
+just component-model-tests-run
+
+# Filter by path
+just component-model-tests-run --filter wasm-tools
+
+# Override wasmtime flags
+just component-model-tests-run --flags "-W exceptions=y"
+```
+
+## Component-Model Reference Tests
+
+```bash
+# Update the component-model reference tests
+just component-model-tests-update
+
+# Run all component-model reference tests (requires wasmtime)
+just component-model-tests-run
+
+# Filter by path
+just component-model-tests-run --filter wasm-tools
+
+# Override wasmtime flags
+just component-model-tests-run --flags "-W exceptions=y"
+```

@@ -6,6 +6,7 @@
     { "path": "moonbitlang/x/sys", "alias": "sys" },
     { "path": "mizchi/wit", "alias": "wit" },
     { "path": "mizchi/moon_component/src", "alias": "codegen" },
-    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" }
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" },
+    { "path": "mizchi/moon_component/src/component", "alias": "component" }
   ]
 }
