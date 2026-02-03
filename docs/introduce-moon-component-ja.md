@@ -41,6 +41,8 @@ cd my-component
 
 ### 1) WIT を用意
 
+`moon-component new` で生成された `wit/world.wit` を置き換える:
+
 ```wit
 package demo:math;
 
@@ -92,6 +94,10 @@ wasmtime run impl.component.wasm
 関数を直接呼びたい場合は `--invoke`（WAVE）:
 ```bash
 wasmtime run --invoke 'add(1, 2)' impl.component.wasm
+```
+出力:
+```
+3
 ```
 
 古い wasmtime では `--wasm component-model` が必要になる場合があります。
