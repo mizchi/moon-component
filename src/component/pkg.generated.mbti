@@ -10,11 +10,19 @@ pub fn check_component_targets(Bytes, @wit.ResolveInput) -> Result[Unit, String]
 
 pub fn check_plug_wit(@wit.ResolveInput, Array[@wit.ResolveInput]) -> Result[Unit, String]
 
+pub fn compose_wac_file(String, best_effort? : Bool, dce? : Bool) -> Result[Bytes, String]
+
+pub fn compose_wac_source(String, String, best_effort? : Bool, dce? : Bool) -> Result[Bytes, String]
+
 pub fn parse_component_detail(Bytes) -> Result[ComponentDetail, ParseError]
 
 pub fn parse_component_info(Bytes) -> Result[ComponentInfo, ParseError]
 
-pub fn plug_components(Bytes, Array[Bytes]) -> Result[Bytes, PlugError]
+pub fn parse_wac(String) -> Result[WacDocument, WacParseError]
+
+pub fn plug_components(Bytes, Array[Bytes], best_effort? : Bool) -> Result[Bytes, PlugError]
+
+pub fn resolve_wac_summary(String, String, best_effort? : Bool) -> Result[WacResolveSummary, String]
 
 // Errors
 pub(all) suberror ParseError {
@@ -32,6 +40,9 @@ pub impl Show for ParseError
 type PlugError
 pub impl Show for PlugError
 
+type WacParseError
+pub impl Show for WacParseError
+
 // Types and methods
 pub(all) struct ComponentDetail {
   types : Array[ComponentTypeDef]
@@ -41,6 +52,8 @@ pub(all) struct ComponentDetail {
   instances : Array[ComponentInstanceDef]
   imported_components : Array[ComponentTypeRef]
   imported_instances : Array[ComponentTypeRef]
+  core_modules : Array[Bytes]
+  core_types : Array[CoreTypeRaw]
 }
 pub impl Eq for ComponentDetail
 pub impl Show for ComponentDetail
@@ -113,10 +126,18 @@ pub(all) enum ComponentTypeDef {
   Func(ComponentFuncType)
   Instance(InstanceTypeDef)
   Resource
-  Component
+  Component(ComponentTypeDetail)
 }
 pub impl Eq for ComponentTypeDef
 pub impl Show for ComponentTypeDef
+
+pub(all) struct ComponentTypeDetail {
+  exports : Array[InstanceExport]
+  entries : Array[InstanceTypeEntry]
+  core_types : Array[CoreTypeRaw]
+}
+pub impl Eq for ComponentTypeDetail
+pub impl Show for ComponentTypeDetail
 
 pub(all) enum ComponentTypeRef {
   Module(UInt)
@@ -150,6 +171,20 @@ pub(all) enum ComponentValType {
 }
 pub impl Eq for ComponentValType
 pub impl Show for ComponentValType
+
+pub(all) enum CoreTypeKind {
+  Module
+  Other
+}
+pub impl Eq for CoreTypeKind
+pub impl Show for CoreTypeKind
+
+pub(all) struct CoreTypeRaw {
+  kind : CoreTypeKind
+  raw : Bytes
+}
+pub impl Eq for CoreTypeRaw
+pub impl Show for CoreTypeRaw
 
 pub(all) struct ExportInfo {
   name : Bytes
@@ -265,6 +300,96 @@ pub(all) struct VariantCase {
 }
 pub impl Eq for VariantCase
 pub impl Show for VariantCase
+
+pub(all) enum WacArg {
+  SpreadAll
+  SpreadInstance(String)
+  Named(WacName, WacExpr)
+  Inferred(WacExpr)
+}
+pub impl Show for WacArg
+pub impl ToJson for WacArg
+
+pub(all) struct WacDocument {
+  pkg : String
+  targets : String?
+  stmts : Array[WacStmt]
+}
+pub impl Show for WacDocument
+pub impl ToJson for WacDocument
+
+pub(all) struct WacExport {
+  expr : WacExpr
+  all : Bool
+  as_name : String?
+}
+pub impl Show for WacExport
+pub impl ToJson for WacExport
+
+pub(all) enum WacExpr {
+  Name(String)
+  Access(WacExpr, WacName)
+  New(WacNew)
+}
+pub impl Show for WacExpr
+pub impl ToJson for WacExpr
+
+pub(all) struct WacImport {
+  local_name : String
+  import_name : String
+  ty : WacImportType
+}
+pub impl Show for WacImport
+pub impl ToJson for WacImport
+
+pub(all) enum WacImportType {
+  Package(String)
+  Ident(String)
+  InlineInterface(String)
+  InlineFunc(String)
+}
+pub impl Show for WacImportType
+pub impl ToJson for WacImportType
+
+pub(all) struct WacInstantiationSummary {
+  name : String
+  component : String
+  args : Array[String]
+}
+pub impl Show for WacInstantiationSummary
+pub impl ToJson for WacInstantiationSummary
+
+pub(all) struct WacName {
+  value : String
+  exact : Bool
+}
+pub impl Show for WacName
+pub impl ToJson for WacName
+
+pub(all) struct WacNew {
+  pkg : String
+  args : Array[WacArg]
+}
+pub impl Show for WacNew
+pub impl ToJson for WacNew
+
+pub(all) struct WacResolveSummary {
+  pkg : String
+  components : Array[String]
+  instantiations : Array[WacInstantiationSummary]
+  exports : Array[String]
+  imports : Array[String]
+}
+pub impl Show for WacResolveSummary
+pub impl ToJson for WacResolveSummary
+
+pub(all) enum WacStmt {
+  Let(String, WacExpr)
+  Export(WacExport)
+  Import(WacImport)
+}
+pub impl Show for WacStmt
+pub impl ToJson for WacStmt
 
 // Type aliases
 

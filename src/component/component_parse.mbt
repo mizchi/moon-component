@@ -108,12 +108,36 @@ fn parse_component_detail_raise(
   let instances : Array[ComponentInstanceDef] = []
   let imported_components : Array[ComponentTypeRef] = []
   let imported_instances : Array[ComponentTypeRef] = []
+  let core_modules : Array[Bytes] = []
+  let core_types : Array[CoreTypeRaw] = []
   while not(parser.eof()) {
     let section_id = parser.read_byte().to_uint()
     let section_size = parser.read_u32_leb128()
     let section_start = parser.get_pos()
     let section_end = section_start + section_size.reinterpret_as_int()
     match section_id {
+      1 => {
+        let payload = parser.slice(section_start, section_end)
+        if payload.length() >= 4 &&
+          payload[0] == 0x00U.to_byte() &&
+          payload[1] == 0x61U.to_byte() &&
+          payload[2] == 0x73U.to_byte() &&
+          payload[3] == 0x6dU.to_byte() {
+          core_modules.push(payload)
+          parser.set_pos(section_end)
+        } else {
+          let count = parser.read_u32_leb128()
+          for _ in 0U..<count {
+            core_types.push(parse_core_type_raw(parser))
+          }
+        }
+      }
+      3 => {
+        let count = parser.read_u32_leb128()
+        for _ in 0U..<count {
+          core_types.push(parse_core_type_raw(parser))
+        }
+      }
       4 => {
         let comp_bytes = parser.slice(section_start, section_end)
         components.push(comp_bytes)
@@ -174,6 +198,8 @@ fn parse_component_detail_raise(
     instances,
     imported_components,
     imported_instances,
+    core_modules,
+    core_types,
   }
 }
 
@@ -344,10 +370,30 @@ fn parse_component_type(parser : Parser) -> ComponentTypeDef raise ParseError {
     }
     0x41 => {
       let decl_count = parser.read_u32_leb128()
+      let exports : Array[InstanceExport] = []
+      let entries : Array[InstanceTypeEntry] = []
+      let core_types : Array[CoreTypeRaw] = []
       for _ in 0U..<decl_count {
-        skip_component_type_decl(parser)
+        let decl_kind = parser.read_byte().to_uint()
+        match decl_kind {
+          0x00 => core_types.push(parse_core_type_raw(parser))
+          0x01 => {
+            let ty = parse_component_type(parser)
+            entries.push(InstanceTypeEntry::Local(ty))
+          }
+          0x02 => {
+            let entry = parse_component_type_alias(parser)
+            entries.push(entry)
+          }
+          0x04 => {
+            let name = parse_component_name(parser)
+            let type_ref = parse_component_type_ref(parser)
+            exports.push({ name, type_ref })
+          }
+          _ => raise ParseError::InvalidFormat("invalid component type decl")
+        }
       }
-      ComponentTypeDef::Component
+      ComponentTypeDef::Component({ exports, entries, core_types })
     }
     0x42 => {
       let decl_count = parser.read_u32_leb128()
@@ -557,65 +603,6 @@ fn parse_type_bounds(parser : Parser) -> TypeBounds raise ParseError {
 }
 
 ///|
-fn skip_component_type_decl(parser : Parser) -> Unit raise ParseError {
-  match parser.peek_byte() {
-    Some(b) =>
-      if b.to_uint() == 0x03U {
-        let _ = parser.read_byte()
-        let _ = parse_component_name(parser)
-        let _ = parse_component_type_ref(parser)
-        return
-      }
-    None => raise ParseError::UnexpectedEof
-  }
-  let kind = parser.read_byte().to_uint()
-  match kind {
-    0x00 => skip_core_type(parser)
-    0x01 => {
-      let _ = parse_component_type(parser)
-
-    }
-    0x02 => skip_component_alias(parser)
-    0x04 => {
-      let _ = parse_component_name(parser)
-      let _ = parse_component_type_ref(parser)
-
-    }
-    _ => raise ParseError::InvalidFormat("invalid component type decl")
-  }
-}
-
-///|
-fn skip_component_alias(parser : Parser) -> Unit raise ParseError {
-  let first = parser.read_byte().to_uint()
-  let second = if first == 0x00 {
-    Some(parser.read_byte().to_uint())
-  } else {
-    None
-  }
-  let _ = second
-  let target = parser.read_byte().to_uint()
-  match target {
-    0x00 => {
-      let _ = parser.read_u32_leb128()
-      let _ = parser.read_name()
-
-    }
-    0x01 => {
-      let _ = parser.read_u32_leb128()
-      let _ = parser.read_name()
-
-    }
-    0x02 => {
-      let _ = parser.read_u32_leb128()
-      let _ = parser.read_u32_leb128()
-
-    }
-    _ => raise ParseError::InvalidFormat("invalid alias target")
-  }
-}
-
-///|
 fn parse_instance_alias(parser : Parser) -> InstanceTypeEntry raise ParseError {
   let first = parser.read_byte().to_uint()
   let second = if first == 0x00 {
@@ -654,6 +641,67 @@ fn parse_instance_alias(parser : Parser) -> InstanceTypeEntry raise ParseError {
     }
     _ => raise ParseError::InvalidFormat("invalid alias target")
   }
+}
+
+///|
+fn parse_component_type_alias(
+  parser : Parser,
+) -> InstanceTypeEntry raise ParseError {
+  let first = parser.read_byte().to_uint()
+  let second = if first == 0x00 {
+    Some(parser.read_byte().to_uint())
+  } else {
+    None
+  }
+  let kind_is_type = first == 0x03
+  let _ = second
+  let target = parser.read_byte().to_uint()
+  match target {
+    0x00 => {
+      let instance_idx = parser.read_u32_leb128()
+      let name = parser.read_name()
+      if kind_is_type {
+        InstanceTypeEntry::Alias(
+          InstanceAliasTarget::Export(instance_idx, name),
+        )
+      } else {
+        InstanceTypeEntry::Alias(InstanceAliasTarget::Unknown)
+      }
+    }
+    0x01 => {
+      let _ = parser.read_u32_leb128()
+      let _ = parser.read_name()
+      InstanceTypeEntry::Alias(InstanceAliasTarget::Unknown)
+    }
+    0x02 => {
+      let count = parser.read_u32_leb128()
+      let index = parser.read_u32_leb128()
+      if kind_is_type {
+        InstanceTypeEntry::Alias(InstanceAliasTarget::Outer(count, index))
+      } else {
+        InstanceTypeEntry::Alias(InstanceAliasTarget::Unknown)
+      }
+    }
+    _ => raise ParseError::InvalidFormat("invalid alias target")
+  }
+}
+
+///|
+fn parse_core_type_raw(parser : Parser) -> CoreTypeRaw raise ParseError {
+  let start = parser.get_pos()
+  let kind = match parser.peek_byte() {
+    Some(b) => b.to_uint()
+    None => raise ParseError::UnexpectedEof
+  }
+  skip_core_type(parser)
+  let end = parser.get_pos()
+  let raw = parser.slice(start, end)
+  let kind_enum = if kind == 0x50 {
+    CoreTypeKind::Module
+  } else {
+    CoreTypeKind::Other
+  }
+  { kind: kind_enum, raw }
 }
 
 ///|

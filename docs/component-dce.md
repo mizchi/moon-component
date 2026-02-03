@@ -11,7 +11,7 @@ WebAssembly Component Model で複数コンポーネントを合成した後、�
 
 ## 目標
 
-`moon-component dce` コマンドで、composed component の未使用コードを削除する。
+将来的に `moon-component dce` コマンドで、composed component の未使用コードを削除する。
 
 ```bash
 moon-component dce input.wasm -o output.wasm --roots "example:app/api"
@@ -19,8 +19,9 @@ moon-component dce input.wasm -o output.wasm --roots "example:app/api"
 
 ## 現在の挙動 (2026-02-03)
 
-- `moon-component compose --dce` で compose 後に component DCE を適用できる
-- まだ「ルート指定」や関数レベルの分析は未実装で、**コンポーネント単位の削除と再エンコード**に限定
+- `moon-component compose --dce` で compose 後に DCE を適用できる
+- ルートは **exports のみ**（`--roots` は未実装）
+- **コンポーネント単位（instance 単位）の削除のみ**。関数レベル DCE は未実装
 
 ### 例: examples/compose での効果測定
 
@@ -38,6 +39,12 @@ cp examples/compose/dist/composed.wasm tmp/dce-check/composed-dce.wasm
 - 差分: -798 bytes (約 -0.98%)
 
 削除数は `0` と出るが、再エンコードによりサイズが減るケースがある。
+
+## 実装メモ（現状）
+
+- WAC の compose 計画上で **到達不能な instance** を削るだけ
+- 依存は `export` と `...`（instance 展開）のみを追跡
+- component 内部の core wasm DCE は **未対応**
 
 ## 設計
 
@@ -92,7 +99,7 @@ Component
 - 未使用のインポート/エクスポートを削除
 - WIT 定義との整合性を維持
 
-## 実装ステップ
+## 実装ステップ（将来）
 
 ### Step 1: Component 解析 (wasmparser)
 

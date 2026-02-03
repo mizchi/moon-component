@@ -151,7 +151,26 @@ pub(all) enum ComponentTypeDef {
   Func(ComponentFuncType)
   Instance(InstanceTypeDef)
   Resource
-  Component
+  Component(ComponentTypeDetail)
+} derive(Show, Eq)
+
+///|
+pub(all) struct ComponentTypeDetail {
+  exports : Array[InstanceExport]
+  entries : Array[InstanceTypeEntry]
+  core_types : Array[CoreTypeRaw]
+} derive(Show, Eq)
+
+///|
+pub(all) enum CoreTypeKind {
+  Module
+  Other
+} derive(Show, Eq)
+
+///|
+pub(all) struct CoreTypeRaw {
+  kind : CoreTypeKind
+  raw : Bytes
 } derive(Show, Eq)
 
 ///|
@@ -188,4 +207,6 @@ pub(all) struct ComponentDetail {
   instances : Array[ComponentInstanceDef]
   imported_components : Array[ComponentTypeRef]
   imported_instances : Array[ComponentTypeRef]
+  core_modules : Array[Bytes]
+  core_types : Array[CoreTypeRaw]
 } derive(Show, Eq)

@@ -6,13 +6,25 @@ fn main {
     cmd_plug(args)
     return
   }
+  if args.length() >= 2 && args[1] == "compose" {
+    cmd_compose_wac(args)
+    return
+  }
+  if args.length() >= 2 && args[1] == "wac-parse" {
+    cmd_wac_parse(args)
+    return
+  }
+  if args.length() >= 2 && args[1] == "wac-resolve" {
+    cmd_wac_resolve(args)
+    return
+  }
   if args.length() >= 2 && args[1] == "targets" {
     cmd_targets(args)
     return
   }
   if args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
@@ -206,6 +218,7 @@ fn cmd_plug(args : Array[String]) -> Unit {
   let mut output_path : String? = None
   let mut socket_wit_path : String? = None
   let plug_wit_paths : Array[String] = []
+  let mut best_effort = false
   let mut i = 3
   while i < args.length() {
     if args[i] == "--plug" && i + 1 < args.length() {
@@ -221,6 +234,9 @@ fn cmd_plug(args : Array[String]) -> Unit {
       i + 1 < args.length() {
       output_path = Some(args[i + 1])
       i = i + 2
+    } else if args[i] == "--best-effort" {
+      best_effort = true
+      i = i + 1
     } else {
       i = i + 1
     }
@@ -282,7 +298,11 @@ fn cmd_plug(args : Array[String]) -> Unit {
       }
     }
   }
-  let result = @component.plug_components(socket_bytes, plug_bytes)
+  let result = @component.plug_components(
+    socket_bytes,
+    plug_bytes,
+    best_effort~,
+  )
   match result {
     Ok(bytes) =>
       match output_path {
@@ -303,9 +323,111 @@ fn cmd_plug(args : Array[String]) -> Unit {
 }
 
 ///|
+fn cmd_compose_wac(args : Array[String]) -> Unit {
+  if args.length() < 3 {
+    println(
+      "Usage: moon-component compose <composition.wac> -o <out.wasm> [--best-effort] [--dce]",
+    )
+    @sys.exit(1)
+  }
+  let input_path = args[2]
+  let mut output_path = "composed.wasm"
+  let mut best_effort = false
+  let mut dce = false
+  let mut i = 3
+  while i < args.length() {
+    if (args[i] == "-o" || args[i] == "--output") && i + 1 < args.length() {
+      output_path = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--best-effort" {
+      best_effort = true
+      i = i + 1
+    } else if args[i] == "--dce" {
+      dce = true
+      i = i + 1
+    } else {
+      i = i + 1
+    }
+  }
+  let result = @component.compose_wac_file(input_path, best_effort~, dce~)
+  match result {
+    Ok(bytes) => {
+      write_file_bytes(output_path, bytes)
+      println("Composed component: " + output_path)
+    }
+    Err(e) => {
+      println("Error: " + e)
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
+fn cmd_wac_parse(args : Array[String]) -> Unit {
+  if args.length() < 3 {
+    println("Usage: moon-component wac-parse <composition.wac>")
+    @sys.exit(1)
+  }
+  let input_path = args[2]
+  let source = @fs.read_file_to_string(input_path) catch {
+    _ => {
+      println("Error reading file: " + input_path)
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  let parsed = @component.parse_wac(source)
+  match parsed {
+    Ok(doc) => println(doc.to_json().stringify(indent=2))
+    Err(e) => {
+      println("Error: " + e.to_string())
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
+fn cmd_wac_resolve(args : Array[String]) -> Unit {
+  if args.length() < 3 {
+    println(
+      "Usage: moon-component wac-resolve <composition.wac> [--best-effort]",
+    )
+    @sys.exit(1)
+  }
+  let input_path = args[2]
+  let mut best_effort = false
+  let mut i = 3
+  while i < args.length() {
+    if args[i] == "--best-effort" {
+      best_effort = true
+      i = i + 1
+    } else {
+      i = i + 1
+    }
+  }
+  let source = @fs.read_file_to_string(input_path) catch {
+    _ => {
+      println("Error reading file: " + input_path)
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  let base = dirname(input_path)
+  let base_dir = if base.length() == 0 { "." } else { base }
+  let resolved = @component.resolve_wac_summary(source, base_dir, best_effort~)
+  match resolved {
+    Ok(summary) => println(summary.to_json().stringify(indent=2))
+    Err(e) => {
+      println("Error: " + e)
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
 fn plug_usage() -> Unit {
   println(
-    "Usage: moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm> --socket-wit <wit-dir> --plug-wit <wit-dir>...",
+    "Usage: moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm> [--best-effort]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm> --socket-wit <wit-dir> --plug-wit <wit-dir>... [--best-effort]",
   )
 }
 
@@ -466,6 +588,20 @@ fn write_file(path : String, content : String) -> Unit {
     mkdir_p(dir)
   }
   @fs.write_string_to_file(path, content) catch {
+    e => {
+      println("Error writing file: " + path + " - " + e.to_string())
+      abort("exit")
+    }
+  }
+}
+
+///|
+fn write_file_bytes(path : String, content : Bytes) -> Unit {
+  let dir = dirname(path)
+  if dir.length() > 0 {
+    mkdir_p(dir)
+  }
+  @fs.write_bytes_to_file(path, content) catch {
     e => {
       println("Error writing file: " + path + " - " + e.to_string())
       abort("exit")

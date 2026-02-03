@@ -95,6 +95,68 @@ fn bytes_eq(a : Bytes, b : Bytes) -> Bool {
 }
 
 ///|
+fn build_import_detail_map(
+  detail : ComponentDetail,
+) -> Map[String, ComponentImportDetail] {
+  let map : Map[String, ComponentImportDetail] = {}
+  for imp in detail.imports {
+    map.set(imp.name.to_string(), imp)
+  }
+  map
+}
+
+///|
+fn merge_import_info(
+  merged : Array[ImportInfo],
+  merged_details : Array[ComponentImportDetail],
+  merged_sources : Array[ComponentDetail],
+  index_map : Map[String, UInt],
+  info : ImportInfo,
+  detail : ComponentImportDetail,
+  source_detail : ComponentDetail,
+  best_effort : Bool,
+) -> Result[UInt, PlugError] {
+  let key = info.name.to_string()
+  match index_map.get(key) {
+    Some(idx) => {
+      let existing_detail = merged_details[idx.reinterpret_as_int()]
+      let existing_source = merged_sources[idx.reinterpret_as_int()]
+      match
+        compare_import_types(
+          existing_source,
+          existing_detail,
+          source_detail,
+          detail,
+          best_effort~,
+        ) {
+        Ok(ImportRelation::Equal) => Ok(idx)
+        Ok(ImportRelation::BSubtypeA) => Ok(idx)
+        Ok(ImportRelation::ASubtypeB) => {
+          merged[idx.reinterpret_as_int()] = info
+          merged_details[idx.reinterpret_as_int()] = detail
+          merged_sources[idx.reinterpret_as_int()] = source_detail
+          Ok(idx)
+        }
+        Err(msg) =>
+          Err(
+            PlugError::TypeMismatch(
+              "import type conflict for `\{info.name.to_string()}`: " + msg,
+            ),
+          )
+      }
+    }
+    None => {
+      let idx = merged.length().reinterpret_as_uint()
+      merged.push(info)
+      merged_details.push(detail)
+      merged_sources.push(source_detail)
+      index_map.set(key, idx)
+      Ok(idx)
+    }
+  }
+}
+
+///|
 fn match_plug_export(
   name : Bytes,
   kind : ExternKind,
@@ -140,6 +202,7 @@ fn parse_detail(bytes : Bytes) -> Result[ComponentDetail, PlugError] {
 pub fn plug_components(
   socket_bytes : Bytes,
   plug_bytes : Array[Bytes],
+  best_effort? : Bool = false,
 ) -> Result[Bytes, PlugError] {
   let socket_info = match parse_info(socket_bytes) {
     Ok(v) => v
@@ -160,13 +223,6 @@ pub fn plug_components(
       Ok(v) => v
       Err(e) => return Err(e)
     }
-    if info.imports.length() > 0 {
-      return Err(
-        PlugError::Unsupported(
-          "plug component has imports; not supported in moon-component plug",
-        ),
-      )
-    }
     plug_infos.push(info)
     plug_details.push(detail)
   }
@@ -174,8 +230,15 @@ pub fn plug_components(
   for info in plug_infos {
     plug_exports.push(info.exports)
   }
-  let forwarded : Array[ImportInfo] = []
+  let socket_import_detail_map = build_import_detail_map(socket_detail)
+  let plug_import_detail_maps : Array[Map[String, ComponentImportDetail]] = []
+  for detail in plug_details {
+    plug_import_detail_maps.push(build_import_detail_map(detail))
+  }
+  let forwarded_imports : Array[ImportInfo] = []
+  let forwarded_details : Array[ComponentImportDetail] = []
   let plans : Array[ImportPlan] = []
+  let used_plug_flags : Array[Bool] = Array::make(plug_infos.length(), false)
   let mut used_plug = false
   for imp in socket_info.imports {
     if not(is_supported_kind(imp.kind)) {
@@ -185,16 +248,83 @@ pub fn plug_components(
       Some(found) => {
         plans.push({ name: imp.name, kind: imp.kind, source: Plug(found) })
         used_plug = true
+        used_plug_flags[found.plug_idx] = true
       }
       None => {
-        let idx = forwarded.length()
-        forwarded.push(imp)
+        let detail = match socket_import_detail_map.get(imp.name.to_string()) {
+          Some(d) => d
+          None =>
+            return Err(
+              PlugError::TypeMismatch(
+                "missing socket import detail for `\{imp.name.to_string()}`",
+              ),
+            )
+        }
+        let idx = forwarded_imports.length()
+        forwarded_imports.push(imp)
+        forwarded_details.push(detail)
         plans.push({ name: imp.name, kind: imp.kind, source: Forwarded(idx) })
       }
     }
   }
   if not(used_plug) {
     return Err(PlugError::NoPlugHappened)
+  }
+  let merged_imports : Array[ImportInfo] = []
+  let merged_details : Array[ComponentImportDetail] = []
+  let merged_sources : Array[ComponentDetail] = []
+  let import_index_map : Map[String, UInt] = {}
+  let forwarded_indices : Array[UInt] = Array::make(
+    forwarded_imports.length(),
+    0U,
+  )
+  for i in 0..<forwarded_imports.length() {
+    let merged_idx = match
+      merge_import_info(
+        merged_imports,
+        merged_details,
+        merged_sources,
+        import_index_map,
+        forwarded_imports[i],
+        forwarded_details[i],
+        socket_detail,
+        best_effort,
+      ) {
+      Ok(v) => v
+      Err(e) => return Err(e)
+    }
+    forwarded_indices[i] = merged_idx
+  }
+  let plug_import_indices : Array[Array[UInt]] = []
+  for plug_idx in 0..<plug_infos.length() {
+    let imports = plug_infos[plug_idx].imports
+    let indices : Array[UInt] = Array::make(imports.length(), 0U)
+    if used_plug_flags[plug_idx] {
+      let detail_map = plug_import_detail_maps[plug_idx]
+      let plug_detail = plug_details[plug_idx]
+      for i in 0..<imports.length() {
+        let imp = imports[i]
+        let detail = match detail_map.get(imp.name.to_string()) {
+          Some(d) => d
+          None =>
+            return Err(
+              PlugError::TypeMismatch(
+                "missing plug import detail for `\{imp.name.to_string()}`",
+              ),
+            )
+        }
+        let merged_idx = match
+          merge_import_info(
+            merged_imports, merged_details, merged_sources, import_index_map, imp,
+            detail, plug_detail, best_effort,
+          ) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        indices[i] = merged_idx
+      }
+    }
+    plug_import_indices.push(indices)
   }
   for i in 0..<plans.length() {
     match plans[i].source {
@@ -204,7 +334,11 @@ pub fn plug_components(
         let export_detail = plug_detail.exports[plug_ref.export_index]
         match
           check_plug_import_export_type(
-            socket_detail, plug_detail, import_detail, export_detail,
+            socket_detail,
+            plug_detail,
+            import_detail,
+            export_detail,
+            best_effort~,
           ) {
           Ok(_) => ()
           Err(msg) =>
@@ -232,24 +366,48 @@ pub fn plug_components(
   }
   let index_state = IndexState::new()
 
-  // Component indices (plugs first, socket last)
-  let plug_component_indices : Array[UInt] = []
-  for _ in plug_bytes {
-    plug_component_indices.push(index_state.next(ExternKind::Component))
+  // Component indices (used plugs first, socket last)
+  let plug_component_indices : Array[UInt?] = Array::make(
+    plug_bytes.length(),
+    None,
+  )
+  for i in 0..<plug_bytes.length() {
+    if used_plug_flags[i] {
+      plug_component_indices[i] = Some(index_state.next(ExternKind::Component))
+    }
   }
   let socket_component_idx = index_state.next(ExternKind::Component)
 
-  // Import indices
-  let forwarded_indices : Array[UInt] = Array::make(forwarded.length(), 0U)
-  for i in 0..<forwarded.length() {
-    let imp = forwarded[i]
-    forwarded_indices[i] = index_state.next(imp.kind)
+  // Import indices (merged)
+  let merged_import_indices : Array[UInt] = Array::make(
+    merged_imports.length(),
+    0U,
+  )
+  for i in 0..<merged_imports.length() {
+    let imp = merged_imports[i]
+    merged_import_indices[i] = index_state.next(imp.kind)
+  }
+  for i in 0..<forwarded_indices.length() {
+    let merged_idx = forwarded_indices[i].reinterpret_as_int()
+    forwarded_indices[i] = merged_import_indices[merged_idx]
+  }
+  for plug_idx in 0..<plug_import_indices.length() {
+    let indices = plug_import_indices[plug_idx]
+    for i in 0..<indices.length() {
+      let merged_idx = indices[i].reinterpret_as_int()
+      indices[i] = merged_import_indices[merged_idx]
+    }
   }
 
   // Plug instance indices
-  let plug_instance_indices : Array[UInt] = []
-  for _ in plug_bytes {
-    plug_instance_indices.push(index_state.next(ExternKind::Instance))
+  let plug_instance_indices : Array[UInt?] = Array::make(
+    plug_bytes.length(),
+    None,
+  )
+  for i in 0..<plug_bytes.length() {
+    if used_plug_flags[i] {
+      plug_instance_indices[i] = Some(index_state.next(ExternKind::Instance))
+    }
   }
 
   // Alias indices for plug exports used in socket imports
@@ -285,35 +443,62 @@ pub fn plug_components(
   append_bytes(out, [0x0dU.to_byte(), 0x00U.to_byte()])
   append_bytes(out, [0x01U.to_byte(), 0x00U.to_byte()])
 
-  // Section 4: component (plugs + socket)
-  for plug in plug_bytes {
-    push_section(out, 4U, plug.to_array())
+  // Section 4: component (used plugs + socket)
+  for i in 0..<plug_bytes.length() {
+    if used_plug_flags[i] {
+      let plug = plug_bytes[i]
+      push_section(out, 4U, plug.to_array())
+    }
   }
   push_section(out, 4U, socket_bytes.to_array())
 
-  // Section 10: imports (forwarded)
-  if forwarded.length() > 0 {
+  // Section 10: imports (forwarded + plug imports)
+  if merged_imports.length() > 0 {
     let payload : Array[Byte] = []
     append_bytes(
       payload,
-      encode_u32_leb128(forwarded.length().reinterpret_as_uint()),
+      encode_u32_leb128(merged_imports.length().reinterpret_as_uint()),
     )
-    for imp in forwarded {
+    for imp in merged_imports {
       append_bytes(payload, encode_import(imp))
     }
     push_section(out, 10U, payload)
   }
 
   // Section 5: instances (plugs)
-  if plug_bytes.length() > 0 {
+  let mut used_plug_count = 0
+  for used in used_plug_flags {
+    if used {
+      used_plug_count = used_plug_count + 1
+    }
+  }
+  if used_plug_count > 0 {
     let payload : Array[Byte] = []
     append_bytes(
       payload,
-      encode_u32_leb128(plug_bytes.length().reinterpret_as_uint()),
+      encode_u32_leb128(used_plug_count.reinterpret_as_uint()),
     )
     for i in 0..<plug_bytes.length() {
-      let comp_idx = plug_component_indices[i]
-      let inst_bytes = encode_instance(comp_idx, [])
+      if not(used_plug_flags[i]) {
+        continue
+      }
+      let comp_idx = match plug_component_indices[i] {
+        Some(v) => v
+        None =>
+          return Err(
+            PlugError::Unsupported(
+              "missing plug component index for `\{i.to_string()}`",
+            ),
+          )
+      }
+      let args : Array[InstantiateArgEntry] = []
+      let imports = plug_infos[i].imports
+      let indices = plug_import_indices[i]
+      for j in 0..<imports.length() {
+        let imp = imports[j]
+        args.push({ name: imp.name, kind: imp.kind, idx: indices[j] })
+      }
+      let inst_bytes = encode_instance(comp_idx, args)
       append_bytes(payload, inst_bytes)
     }
     push_section(out, 5U, payload)
@@ -325,7 +510,15 @@ pub fn plug_components(
   for i in 0..<plans.length() {
     match plans[i].source {
       Plug(plug_ref) => {
-        let inst_idx = plug_instance_indices[plug_ref.plug_idx]
+        let inst_idx = match plug_instance_indices[plug_ref.plug_idx] {
+          Some(v) => v
+          None =>
+            return Err(
+              PlugError::Unsupported(
+                "missing plug instance index for `\{plug_ref.name.to_string()}`",
+              ),
+            )
+        }
         append_bytes(
           alias_payload,
           encode_alias(plans[i].kind, inst_idx, plug_ref.name),
