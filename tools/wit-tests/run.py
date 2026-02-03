@@ -96,7 +96,7 @@ def main() -> int:
     runner = detect_runner(root)
     if runner is None:
         print(
-            "moon-component binary not found. Install from npm/prebuilt or set MOON_COMPONENT_BIN.",
+            "moon-component binary not found. Install from prebuilt or build locally, or set MOON_COMPONENT_BIN.",
             file=sys.stderr,
         )
         return 2

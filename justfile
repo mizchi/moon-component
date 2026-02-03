@@ -19,10 +19,6 @@ build-js:
 dist-package os arch:
     ./tools/dist/package.sh {{os}} {{arch}}
 
-# Build npm package assets
-npm-build:
-    ./tools/npm/build.sh
-
 # Install instructions
 install:
     @echo "Install moon-component:"
@@ -144,7 +140,7 @@ test-integration: test-zig-host test-swift-host
 test-integration-all: test-zig-host test-swift-host test-scala-host test-jco-host
     @echo "All integration tests (including Scala and jco) passed!"
 
-# Local release prep: bump version, format, build npm assets, commit, tag
+# Local release prep: bump version, format, commit, tag
 release-local version:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -161,8 +157,6 @@ release-local version:
 
     moon info
     moon fmt
-    ./tools/npm/build.sh
-
     git add -A
     git commit -m "Release v${ver}"
     git tag -a "v${ver}" -m "v${ver}"
