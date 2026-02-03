@@ -7,6 +7,7 @@
     { "path": "mizchi/wit", "alias": "wit" },
     { "path": "mizchi/moon_component/src", "alias": "codegen" },
     { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" },
-    { "path": "mizchi/moon_component/src/component", "alias": "component" }
+    { "path": "mizchi/moon_component/src/component", "alias": "component" },
+    { "path": "mizchi/mwac/composer", "alias": "composer" }
   ]
 }

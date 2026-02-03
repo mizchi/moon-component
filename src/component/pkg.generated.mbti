@@ -6,23 +6,43 @@ import {
 }
 
 // Values
+pub fn append_bytes(Array[Byte], Array[Byte]) -> Unit
+
+pub fn build_global_space(Array[ComponentTypeDef]) -> TypeSpace
+
 pub fn check_component_targets(Bytes, @wit.ResolveInput) -> Result[Unit, String]
+
+pub fn check_func_signature(String, @wit.RFunction, ResolvedFuncType, @wit.Resolve, TypeResolveContext) -> Result[Unit, String]
+
+pub fn check_interface(@wit.RInterface, InstanceExportSet, @wit.Resolve, TypeResolveContext, String, Array[String]) -> Unit
+
+pub fn check_plug_import_export_type(ComponentDetail, ComponentDetail, ComponentImportDetail, ComponentExportDetail, best_effort? : Bool) -> Result[Unit, String]
 
 pub fn check_plug_wit(@wit.ResolveInput, Array[@wit.ResolveInput]) -> Result[Unit, String]
 
-pub fn compose_wac_file(String, best_effort? : Bool, dce? : Bool) -> Result[Bytes, String]
+pub fn compare_import_types(ComponentDetail, ComponentImportDetail, ComponentDetail, ComponentImportDetail, best_effort? : Bool) -> Result[ImportRelation, String]
 
-pub fn compose_wac_source(String, String, best_effort? : Bool, dce? : Bool) -> Result[Bytes, String]
+pub fn encode_alias(ExternKind, UInt, Bytes) -> Array[Byte]
+
+pub fn encode_export(Bytes, ExternKind, UInt) -> Array[Byte]
+
+pub fn encode_import(ImportInfo) -> Array[Byte]
+
+pub fn encode_instance(UInt, Array[InstantiateArgEntry]) -> Array[Byte]
+
+pub fn encode_u32_leb128(UInt) -> Array[Byte]
 
 pub fn parse_component_detail(Bytes) -> Result[ComponentDetail, ParseError]
 
 pub fn parse_component_info(Bytes) -> Result[ComponentInfo, ParseError]
 
-pub fn parse_wac(String) -> Result[WacDocument, WacParseError]
-
 pub fn plug_components(Bytes, Array[Bytes], best_effort? : Bool) -> Result[Bytes, PlugError]
 
-pub fn resolve_wac_summary(String, String, best_effort? : Bool) -> Result[WacResolveSummary, String]
+pub fn push_section(Array[Byte], UInt, Array[Byte]) -> Unit
+
+pub fn resolve_func_type_in_space(TypeResolveContext, TypeSpace, ComponentTypeRef) -> ResolvedFuncType?
+
+pub fn resolve_instance_exports_from_type_ref(ComponentDetail, ComponentTypeRef, TypeSpace) -> Result[InstanceExportSet, String]
 
 // Errors
 pub(all) suberror ParseError {
@@ -39,9 +59,6 @@ pub impl Show for ParseError
 
 type PlugError
 pub impl Show for PlugError
-
-type WacParseError
-pub impl Show for WacParseError
 
 // Types and methods
 pub(all) struct ComponentDetail {
@@ -212,6 +229,23 @@ pub(all) struct ImportInfo {
 pub impl Eq for ImportInfo
 pub impl Show for ImportInfo
 
+pub enum ImportRelation {
+  Equal
+  ASubtypeB
+  BSubtypeA
+}
+
+pub struct IndexState {
+  mut func : UInt
+  mut value : UInt
+  mut type_ : UInt
+  mut component : UInt
+  mut instance : UInt
+  mut core_module : UInt
+}
+pub fn IndexState::new() -> Self
+pub fn IndexState::next(Self, ExternKind) -> UInt
+
 pub(all) enum InstanceAliasTarget {
   Outer(UInt, UInt)
   Export(UInt, Bytes)
@@ -227,6 +261,11 @@ pub(all) struct InstanceExport {
 pub impl Eq for InstanceExport
 pub impl Show for InstanceExport
 
+pub struct InstanceExportSet {
+  exports : Array[InstanceExport]
+  space : TypeSpace
+}
+
 pub(all) struct InstanceTypeDef {
   exports : Array[InstanceExport]
   entries : Array[InstanceTypeEntry]
@@ -240,6 +279,12 @@ pub(all) enum InstanceTypeEntry {
 }
 pub impl Eq for InstanceTypeEntry
 pub impl Show for InstanceTypeEntry
+
+pub(all) struct InstantiateArgEntry {
+  name : Bytes
+  kind : ExternKind
+  idx : UInt
+}
 
 pub struct Parser {
   bytes : Bytes
@@ -286,12 +331,29 @@ pub(all) struct RecordField {
 pub impl Eq for RecordField
 pub impl Show for RecordField
 
+pub struct ResolvedFuncType {
+  func : ComponentFuncType
+  space : TypeSpace
+}
+
 pub(all) enum TypeBounds {
   Eq(UInt)
   SubResource
 }
 pub impl Eq for TypeBounds
 pub impl Show for TypeBounds
+
+pub(all) struct TypeResolveContext {
+  detail : ComponentDetail
+  global_space : TypeSpace
+  instance_cache : Map[UInt, InstanceExportSet]
+}
+
+pub struct TypeSpace {
+  id : String
+  entries : Array[InstanceTypeEntry]
+  outer : TypeSpace?
+}
 
 pub(all) struct VariantCase {
   name : Bytes
@@ -300,96 +362,6 @@ pub(all) struct VariantCase {
 }
 pub impl Eq for VariantCase
 pub impl Show for VariantCase
-
-pub(all) enum WacArg {
-  SpreadAll
-  SpreadInstance(String)
-  Named(WacName, WacExpr)
-  Inferred(WacExpr)
-}
-pub impl Show for WacArg
-pub impl ToJson for WacArg
-
-pub(all) struct WacDocument {
-  pkg : String
-  targets : String?
-  stmts : Array[WacStmt]
-}
-pub impl Show for WacDocument
-pub impl ToJson for WacDocument
-
-pub(all) struct WacExport {
-  expr : WacExpr
-  all : Bool
-  as_name : String?
-}
-pub impl Show for WacExport
-pub impl ToJson for WacExport
-
-pub(all) enum WacExpr {
-  Name(String)
-  Access(WacExpr, WacName)
-  New(WacNew)
-}
-pub impl Show for WacExpr
-pub impl ToJson for WacExpr
-
-pub(all) struct WacImport {
-  local_name : String
-  import_name : String
-  ty : WacImportType
-}
-pub impl Show for WacImport
-pub impl ToJson for WacImport
-
-pub(all) enum WacImportType {
-  Package(String)
-  Ident(String)
-  InlineInterface(String)
-  InlineFunc(String)
-}
-pub impl Show for WacImportType
-pub impl ToJson for WacImportType
-
-pub(all) struct WacInstantiationSummary {
-  name : String
-  component : String
-  args : Array[String]
-}
-pub impl Show for WacInstantiationSummary
-pub impl ToJson for WacInstantiationSummary
-
-pub(all) struct WacName {
-  value : String
-  exact : Bool
-}
-pub impl Show for WacName
-pub impl ToJson for WacName
-
-pub(all) struct WacNew {
-  pkg : String
-  args : Array[WacArg]
-}
-pub impl Show for WacNew
-pub impl ToJson for WacNew
-
-pub(all) struct WacResolveSummary {
-  pkg : String
-  components : Array[String]
-  instantiations : Array[WacInstantiationSummary]
-  exports : Array[String]
-  imports : Array[String]
-}
-pub impl Show for WacResolveSummary
-pub impl ToJson for WacResolveSummary
-
-pub(all) enum WacStmt {
-  Let(String, WacExpr)
-  Export(WacExport)
-  Import(WacImport)
-}
-pub impl Show for WacStmt
-pub impl ToJson for WacStmt
 
 // Type aliases
 

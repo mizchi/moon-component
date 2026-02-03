@@ -27,7 +27,7 @@ priv enum ImportSource {
 }
 
 ///|
-priv struct IndexState {
+pub struct IndexState {
   mut func : UInt
   mut value : UInt
   mut type_ : UInt
@@ -37,7 +37,7 @@ priv struct IndexState {
 }
 
 ///|
-fn IndexState::new() -> IndexState {
+pub fn IndexState::new() -> IndexState {
   {
     func: 0U,
     value: 0U,
@@ -49,7 +49,7 @@ fn IndexState::new() -> IndexState {
 }
 
 ///|
-fn IndexState::next(self : IndexState, kind : ExternKind) -> UInt {
+pub fn IndexState::next(self : IndexState, kind : ExternKind) -> UInt {
   match kind {
     Func => {
       let idx = self.func

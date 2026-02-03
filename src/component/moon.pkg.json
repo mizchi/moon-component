@@ -2,7 +2,6 @@
   "import": [
     "moonbitlang/core/bytes",
     "moonbitlang/core/encoding/utf8",
-    { "path": "moonbitlang/x/fs", "alias": "fs" },
     { "path": "mizchi/wit", "alias": "wit" }
   ],
   "test-import": [

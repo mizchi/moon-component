@@ -1,12 +1,12 @@
 ///|
-fn append_bytes(dst : Array[Byte], src : Array[Byte]) -> Unit {
+pub fn append_bytes(dst : Array[Byte], src : Array[Byte]) -> Unit {
   for b in src {
     dst.push(b)
   }
 }
 
 ///|
-fn encode_u32_leb128(value : UInt) -> Array[Byte] {
+pub fn encode_u32_leb128(value : UInt) -> Array[Byte] {
   let mut v = value
   let out : Array[Byte] = []
   while true {
@@ -40,7 +40,11 @@ fn encode_externname(name : Bytes) -> Array[Byte] {
 }
 
 ///|
-fn push_section(out : Array[Byte], id : UInt, payload : Array[Byte]) -> Unit {
+pub fn push_section(
+  out : Array[Byte],
+  id : UInt,
+  payload : Array[Byte],
+) -> Unit {
   if payload.length() == 0 {
     return
   }
@@ -73,7 +77,7 @@ fn append_extern_sort(dst : Array[Byte], kind : ExternKind) -> Unit {
 }
 
 ///|
-fn encode_import(info : ImportInfo) -> Array[Byte] {
+pub fn encode_import(info : ImportInfo) -> Array[Byte] {
   let out : Array[Byte] = []
   append_bytes(out, encode_externname(info.name))
   append_bytes(out, info.raw_desc.to_array())
@@ -81,7 +85,11 @@ fn encode_import(info : ImportInfo) -> Array[Byte] {
 }
 
 ///|
-fn encode_export(name : Bytes, kind : ExternKind, idx : UInt) -> Array[Byte] {
+pub fn encode_export(
+  name : Bytes,
+  kind : ExternKind,
+  idx : UInt,
+) -> Array[Byte] {
   let out : Array[Byte] = []
   append_bytes(out, encode_externname(name))
   append_extern_sort(out, kind)
@@ -92,7 +100,7 @@ fn encode_export(name : Bytes, kind : ExternKind, idx : UInt) -> Array[Byte] {
 }
 
 ///|
-fn encode_alias(
+pub fn encode_alias(
   kind : ExternKind,
   instance_idx : UInt,
   name : Bytes,
@@ -107,7 +115,7 @@ fn encode_alias(
 }
 
 ///|
-fn encode_instance(
+pub fn encode_instance(
   component_idx : UInt,
   args : Array[InstantiateArgEntry],
 ) -> Array[Byte] {
@@ -125,7 +133,7 @@ fn encode_instance(
 }
 
 ///|
-priv struct InstantiateArgEntry {
+pub(all) struct InstantiateArgEntry {
   name : Bytes
   kind : ExternKind
   idx : UInt

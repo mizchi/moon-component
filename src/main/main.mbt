@@ -349,7 +349,7 @@ fn cmd_compose_wac(args : Array[String]) -> Unit {
       i = i + 1
     }
   }
-  let result = @component.compose_wac_file(input_path, best_effort~, dce~)
+  let result = @composer.compose_wac_file(input_path, best_effort~, dce~)
   match result {
     Ok(bytes) => {
       write_file_bytes(output_path, bytes)
@@ -376,7 +376,7 @@ fn cmd_wac_parse(args : Array[String]) -> Unit {
       abort("exit")
     }
   }
-  let parsed = @component.parse_wac(source)
+  let parsed = @composer.parse_wac(source)
   match parsed {
     Ok(doc) => println(doc.to_json().stringify(indent=2))
     Err(e) => {
@@ -414,7 +414,7 @@ fn cmd_wac_resolve(args : Array[String]) -> Unit {
   }
   let base = dirname(input_path)
   let base_dir = if base.length() == 0 { "." } else { base }
-  let resolved = @component.resolve_wac_summary(source, base_dir, best_effort~)
+  let resolved = @composer.resolve_wac_summary(source, base_dir, best_effort~)
   match resolved {
     Ok(summary) => println(summary.to_json().stringify(indent=2))
     Err(e) => {

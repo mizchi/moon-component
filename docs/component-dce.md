@@ -20,6 +20,7 @@ moon-component dce input.wasm -o output.wasm --roots "example:app/api"
 ## 現在の挙動 (2026-02-03)
 
 - `moon-component compose --dce` で compose 後に DCE を適用できる
+- この DCE は **moon-component 独自実装**（upstream の wac には未搭載）
 - ルートは **exports のみ**（`--roots` は未実装）
 - **コンポーネント単位（instance 単位）の削除のみ**。関数レベル DCE は未実装
 
