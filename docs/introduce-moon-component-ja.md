@@ -25,6 +25,7 @@ export PATH="$PWD/_build/native/release/build/src/main:$PATH"
 ```
 
 注意:
+- npm/JS 版は Node.js が必要。
 - prebuilt macOS は **arm64 のみ**。macOS x64 はソースビルド。
 
 ---

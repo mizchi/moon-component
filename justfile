@@ -25,10 +25,11 @@ npm-build:
 
 # Install instructions
 install:
-    @echo "Install moon-component via npm or prebuilt binaries."
-    @echo "For local MoonBit builds (generate/plug/targets only), run: just install-native"
+    @echo "Install moon-component:"
+    @echo "  - Local MoonBit build: just install-native (full features)"
+    @echo "  - npm / prebuilt binaries: see README.md"
 
-# Install MoonBit-native CLI to ~/.local/bin (limited features)
+# Install MoonBit-native CLI to ~/.local/bin (full features)
 install-native: build-native
     mkdir -p ~/.local/bin
     cp {{moon_component_bin}} ~/.local/bin/moon-component
