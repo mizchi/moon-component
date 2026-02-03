@@ -17,6 +17,28 @@ WebAssembly Component Model で複数コンポーネントを合成した後、�
 moon-component dce input.wasm -o output.wasm --roots "example:app/api"
 ```
 
+## 現在の挙動 (2026-02-03)
+
+- `moon-component compose --dce` で compose 後に component DCE を適用できる
+- まだ「ルート指定」や関数レベルの分析は未実装で、**コンポーネント単位の削除と再エンコード**に限定
+
+### 例: examples/compose での効果測定
+
+```bash
+moon-component compose -c examples/compose/moon-component.toml
+cp examples/compose/dist/composed.wasm tmp/dce-check/composed-no-dce.wasm
+
+moon-component compose -c examples/compose/moon-component.toml --dce
+cp examples/compose/dist/composed.wasm tmp/dce-check/composed-dce.wasm
+```
+
+結果:
+- no dce: 81,524 bytes
+- with dce: 80,726 bytes
+- 差分: -798 bytes (約 -0.98%)
+
+削除数は `0` と出るが、再エンコードによりサイズが減るケースがある。
+
 ## 設計
 
 ### Component Model の構造
