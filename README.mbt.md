@@ -8,14 +8,6 @@ WebAssembly Component Model tooling for MoonBit.
 # Prebuilt binary (macOS/Linux)
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
-# npx (JS build, no install)
-npx @mizchi/moon-component
-
-# npm (JS build)
-npm i -g @mizchi/moon-component
-```
-
-```bash
 # Build from source (MoonBit)
 moon build --target native --release -C src/main
 
@@ -24,7 +16,6 @@ export PATH="$PWD/_build/native/release/build/src/main:$PATH"
 ```
 
 Note:
-- npm/JS build requires Node.js.
 - prebuilt macOS binaries are arm64 only. macOS x64 requires build from source.
 
 ## Quick Start

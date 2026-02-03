@@ -11,21 +11,12 @@ MoonBit で WebAssembly Component を作る/使うための CLI。
 # Prebuilt binary (macOS/Linux)
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
-# npx (no install)
-npx @mizchi/moon-component
-
-# npm
-npm i -g @mizchi/moon-component
-```
-
-```bash
 # Build from source (MoonBit)
 moon build --target native --release -C src/main
 export PATH="$PWD/_build/native/release/build/src/main:$PATH"
 ```
 
 注意:
-- npm/JS 版は Node.js が必要。
 - prebuilt macOS は **arm64 のみ**。macOS x64 はソースビルド。
 
 ---
