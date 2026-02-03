@@ -3,6 +3,7 @@ import argparse
 import difflib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -50,24 +51,20 @@ def normalize_json_value(value):
     return value
 
 
-def detect_runner(root: Path) -> list[str]:
+def detect_runner(root: Path) -> list[str] | None:
     env_bin = os.environ.get("MOON_COMPONENT_BIN")
     if env_bin:
         return [env_bin]
+    path_bin = shutil.which("moon-component")
+    if path_bin:
+        return [path_bin]
     debug_bin = root / "tools" / "moon-component" / "target" / "debug" / "moon-component"
     if debug_bin.exists():
         return [str(debug_bin)]
     release_bin = root / "tools" / "moon-component" / "target" / "release" / "moon-component"
     if release_bin.exists():
         return [str(release_bin)]
-    return [
-        "cargo",
-        "run",
-        "--quiet",
-        "--manifest-path",
-        str(root / "tools" / "moon-component" / "Cargo.toml"),
-        "--",
-    ]
+    return None
 
 
 def main() -> int:
@@ -97,6 +94,12 @@ def main() -> int:
         tests = filtered
 
     runner = detect_runner(root)
+    if runner is None:
+        print(
+            "moon-component binary not found. Install from npm/prebuilt or set MOON_COMPONENT_BIN.",
+            file=sys.stderr,
+        )
+        return 2
     env = os.environ.copy()
     if args.features:
         env["MOON_COMPONENT_WIT_FEATURES"] = args.features
@@ -105,7 +108,14 @@ def main() -> int:
     for test in tests:
         is_parse_fail = "parse-fail" in test.parts
         cmd = runner + ["resolve-json", str(test)]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            cwd=root,
+        )
 
         if is_parse_fail:
             if result.returncode == 0:

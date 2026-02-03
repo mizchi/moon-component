@@ -1,14 +1,11 @@
 # moon-component
 # Usage: just <command> [args]
 
-moon_component := "tools/moon-component/target/release/moon-component"
+moon_component := "moon-component"
+moon_component_bin := "_build/native/release/build/src/main/main.exe"
 
 default:
     @just --list
-
-# Build the moon-component CLI
-build-cli:
-    cargo build --release --manifest-path tools/moon-component/Cargo.toml
 
 # Build the MoonBit native CLI
 build-native:
@@ -26,11 +23,16 @@ dist-package os arch:
 npm-build:
     ./tools/npm/build.sh
 
-# Install moon-component to ~/.local/bin
-install: build-cli
+# Install instructions
+install:
+    @echo "Install moon-component via npm or prebuilt binaries."
+    @echo "For local MoonBit builds (generate/plug/targets only), run: just install-native"
+
+# Install MoonBit-native CLI to ~/.local/bin (limited features)
+install-native: build-native
     mkdir -p ~/.local/bin
-    cp {{moon_component}} ~/.local/bin/moon-component
-    @echo "Installed moon-component to ~/.local/bin/moon-component"
+    cp {{moon_component_bin}} ~/.local/bin/moon-component
+    @echo "Installed MoonBit CLI to ~/.local/bin/moon-component"
 
 # Run tests
 test *args:
@@ -55,7 +57,6 @@ component-model-tests-run *args:
 # Format code
 fmt:
     moon fmt
-    cargo fmt --manifest-path tools/moon-component/Cargo.toml
 
 # Update generated interface files
 info:
@@ -64,12 +65,10 @@ info:
 # Check code
 check:
     moon check
-    cargo check --manifest-path tools/moon-component/Cargo.toml
 
 # Clean build artifacts
 clean:
     moon clean
-    cargo clean --manifest-path tools/moon-component/Cargo.toml
 
 # Build hello example
 example-hello:
@@ -102,34 +101,6 @@ example-core-module-build:
 example-core-module-compose: example-core-module-build
     moon run src/main -- plug examples/core-module/socket.wasm --plug examples/core-module/plug.wasm -o examples/core-module/composed.wasm
     wasm-tools validate examples/core-module/composed.wasm
-
-# Build rust-guest (reference implementation)
-build-rust-guest:
-    #!/usr/bin/env bash
-    export RUSTUP_HOME="$HOME/.rustup"
-    export CARGO_HOME="$HOME/.cargo"
-    export PATH="$CARGO_HOME/bin:$RUSTUP_HOME/toolchains/stable-aarch64-apple-darwin/bin:$PATH"
-    cargo build --release --target wasm32-unknown-unknown --manifest-path examples/tests/rust-guest/Cargo.toml
-    wasm-tools component new examples/tests/rust-guest/target/wasm32-unknown-unknown/release/rust_guest.wasm -o examples/tests/rust-guest/rust-guest.component.wasm
-
-# Test rust-guest with rust-host
-test-rust-guest: build-rust-guest
-    cargo run --release --manifest-path examples/host/rust/Cargo.toml -- types examples/tests/rust-guest/rust-guest.component.wasm
-
-# Build zig-guest (Zig implementation using C bindings)
-build-zig-guest:
-    zig build -p examples/tests/zig-guest/zig-out --build-file examples/tests/zig-guest/build.zig
-    wasm-tools component new examples/tests/zig-guest/zig-out/bin/zig-guest.wasm \
-        --adapt examples/tests/zig-guest/adapters/wasi_snapshot_preview1.reactor.wasm \
-        -o examples/tests/zig-guest/zig-guest.component.wasm
-
-# Test zig-guest with rust-host
-test-zig-guest: build-zig-guest
-    cargo run --release --manifest-path examples/host/rust/Cargo.toml -- types examples/tests/zig-guest/zig-guest.component.wasm
-
-# Run Rust host tests
-test-rust-host test_type="types":
-    cd examples/host/rust && cargo run --release -- {{test_type}}
 
 # Build Zig host
 build-zig-host:
@@ -165,11 +136,11 @@ test-jco-host: build-jco-host
     pnpm --dir examples/host/jco run test
 
 # Run all integration tests
-test-integration: test-rust-host test-zig-host test-swift-host
+test-integration: test-zig-host test-swift-host
     @echo "All integration tests passed!"
 
 # Run all integration tests including Scala and jco (requires sbt, pnpm)
-test-integration-all: test-rust-host test-zig-host test-swift-host test-scala-host test-jco-host
+test-integration-all: test-zig-host test-swift-host test-scala-host test-jco-host
     @echo "All integration tests (including Scala and jco) passed!"
 
 # Local release prep: bump version, format, build npm assets, commit, tag

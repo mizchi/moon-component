@@ -354,48 +354,18 @@ Host implementations for testing generated WebAssembly modules:
 | `examples/host/jco` | JavaScript | Component | Node.js testing via jco transpiler |
 
 ```bash
-# Run all integration tests (Rust, Zig, Swift)
+# Run all integration tests (Zig, Swift)
 just test-integration
 
 # Run all integration tests including Scala and jco (requires sbt, pnpm)
 just test-integration-all
 
-# Run individual host tests
-just test-rust-host
+# Run individual host tests (non-Rust)
 just test-swift-host
 just test-scala-host
 just test-zig-host
 just test-jco-host
-```
 
-## Component-Model Reference Tests
-
-```bash
-# Update the component-model reference tests
-just component-model-tests-update
-
-# Run all component-model reference tests (requires wasmtime)
-just component-model-tests-run
-
-# Filter by path
-just component-model-tests-run --filter wasm-tools
-
-# Override wasmtime flags
-just component-model-tests-run --flags "-W exceptions=y"
-```
-
-## Component-Model Reference Tests
-
-```bash
-# Update the component-model reference tests
-just component-model-tests-update
-
-# Run all component-model reference tests (requires wasmtime)
-just component-model-tests-run
-
-# Filter by path
-just component-model-tests-run --filter wasm-tools
-
-# Override wasmtime flags
-just component-model-tests-run --flags "-W exceptions=y"
+# Rust host tests (optional)
+just -f justfile.rust test-rust-host
 ```
