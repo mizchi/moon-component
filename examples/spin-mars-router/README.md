@@ -69,3 +69,17 @@ curl -i http://127.0.0.1:3000/files/a/b
 cd examples/spin-mars-router
 just test
 ```
+
+## E2E (Spin HTTP)
+
+```bash
+cd examples/spin-mars-router
+just e2e
+```
+
+Playwright が `just spin-up` を起動し、以下ルートを HTTP 経由で検証します。
+
+- `/`
+- `/users/42`
+- `/files/a/b/c`
+- `/nope` (404)
