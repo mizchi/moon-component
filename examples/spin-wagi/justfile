@@ -1,0 +1,21 @@
+# examples/spin-wagi
+# Usage: just <command>
+
+default:
+    @just --list
+
+build:
+    moon build --target wasm --release impl
+
+componentize: build
+    moon-component componentize _build/wasm/release/build/impl/impl.wasm \
+        --wit-dir wit -o component.wasm
+
+wasmtime-run: componentize
+    wasmtime run component.wasm
+
+spin-up: componentize
+    spin up
+
+clean:
+    rm -rf _build component.wasm

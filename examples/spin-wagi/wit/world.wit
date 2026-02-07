@@ -1,0 +1,5 @@
+package local:spin-wagi-demo;
+
+world spin-wagi-demo {
+  include wasi:cli/command@0.2.9;
+}

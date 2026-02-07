@@ -328,6 +328,7 @@ See [Pre-Proposal: Wasm GC Support in Canonical ABI](https://github.com/WebAssem
 - `examples/reverse` - String manipulation
 - `examples/calc-impl` - Calculator with records
 - `examples/regex` - Rust guest + MoonBit host (regex)
+- `examples/spin-wagi` - Spin HTTP trigger (WAGI executor) + WASIp2 `wasi:cli/run`
 - `examples/tests/types-test` - All primitive and container types (MoonBit)
 - `examples/tests/rust-guest` - Reference implementation (Rust wit-bindgen)
 - `examples/tests/zig-guest` - Zig implementation using C bindings

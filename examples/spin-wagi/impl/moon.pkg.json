@@ -1,0 +1,22 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "spin-wagi-demo/gen/cabi", "alias": "cabi" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:wasi:cli/run@0.2.9#run"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportRun:wasi:cli/run@0.2.9#run"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}
