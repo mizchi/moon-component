@@ -1,6 +1,6 @@
 {
   "import": [
-    { "path": "spin-mars-router-demo/mars_router", "alias": "router" },
-    { "path": "spin-mars-router-demo/mars_router/trie", "alias": "trie" }
+    { "path": "mizchi/mars/router", "alias": "router" },
+    { "path": "mizchi/mars/router/trie", "alias": "trie" }
   ]
 }

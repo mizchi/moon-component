@@ -1,23 +1,24 @@
 # Spin + Moon Component + Mars Router Split Example
 
-`mizchi/mars.mbt` をそのまま依存せず、`router` / `router/trie` を分離して
+`mizchi/mars.mbt` の `router` / `router/trie` パッケージを
 `moon-component` の WASIp2 guest と組み合わせる実行可能サンプルです。
 
 - Guest world: `wasi:cli/command@0.2.9`
 - Spin trigger: HTTP (`executor = { type = "wagi" }`)
-- Router: vendored `mars` trie router (`examples/spin-mars-router/mars_router`)
+- Router: `@mizchi/mars/router` + `@mizchi/mars/router/trie`
 - Request path source: `wasi:cli/environment.get-arguments` の 1 要素目（WAGI の `PATH_INFO` 相当）
 - HTTP method: 現状は `GET` 固定
 
 ## Why this example
 
-`mizchi/mars@0.3.2` は現状 `--target wasm` でビルド不可なため、
-まずは router 層のみを分解して WASM component に接続できるかを検証します。
+`mizchi/mars@0.3.2` 全体は `PlatformContext` 依存により現状 `--target wasm` で
+そのままはビルド不可ですが、`router` / `router/trie` は pure なので
+WASM component 側の app 層で直接利用できます。
 
-## Decomposition points (for step 2)
+## Decomposition points
 
 1. **Pure routing core**
-`mars_router/` と `mars_router/trie/` は IO 依存を持たない。
+`@mizchi/mars/router` と `@mizchi/mars/router/trie` は IO 依存を持たない。
 
 2. **Runtime boundary**
 `impl/impl.mbt` が `wasi:cli/*` FFI と WAGI レスポンス整形を担当。
