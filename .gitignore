@@ -40,3 +40,4 @@ tools/wasmtime-main/
 # Local tool lock/log files
 wkg.lock
 spin.log
+.spin/
