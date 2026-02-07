@@ -41,3 +41,5 @@ tools/wasmtime-main/
 wkg.lock
 spin.log
 .spin/
+crt.pem
+spin.sig
