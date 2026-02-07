@@ -7,7 +7,9 @@
 - Spin trigger: HTTP (`executor = { type = "wagi" }`)
 - Router: `@mizchi/mars/router` + `@mizchi/mars/router/trie`
 - Request path source: `wasi:cli/environment.get-arguments` の 1 要素目（WAGI の `PATH_INFO` 相当）
-- HTTP method: 現状は `GET` 固定
+- HTTP method:
+  - Spin + WAGI 実行では `GET` 固定（`get-environment` 呼び出しが trap するため）
+  - `--use-env-method` を引数に渡した実行では `REQUEST_METHOD` を読む
 
 ## Why this example
 
@@ -41,6 +43,14 @@ just wasmtime-run
 ```bash
 wasmtime run component.wasm /users/42
 ```
+
+`REQUEST_METHOD` を有効にする場合:
+
+```bash
+wasmtime run --env REQUEST_METHOD=POST component.wasm /users/42 --use-env-method
+```
+
+この場合は `POST /users/:id` ルートが無いため `404` になります。
 
 Spin で確認:
 
