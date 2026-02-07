@@ -1,6 +1,0 @@
-{
-  "import": [
-    { "path": "spin-mars-router-demo/mars_router", "alias": "router" },
-    "moonbitlang/regexp"
-  ]
-}
