@@ -19,6 +19,7 @@ pub(all) struct GeneratorOpts {
   impl_dir : String
   generate_impl : Bool
   generate_wkg : Bool
+  generate_wite : Bool
   wkg_version : String
   pkg_format : PkgFormat
   use_js_string_builtins : Bool
@@ -34,6 +35,7 @@ pub fn GeneratorOpts::default() -> GeneratorOpts {
     impl_dir: "impl",
     generate_impl: true,
     generate_wkg: false,
+    generate_wite: false,
     wkg_version: "0.1.0",
     pkg_format: Json,
     use_js_string_builtins: false,
@@ -117,6 +119,11 @@ pub fn Generator::generate(self : Generator) -> Array[GeneratedFile] {
   // Generate wkg.toml if requested
   if self.opts.generate_wkg {
     self.generate_wkg_toml(world)
+  }
+
+  // Generate wite.config.jsonc if requested
+  if self.opts.generate_wite {
+    self.generate_wite_config(world)
   }
 
   // Generate impl/moon.pkg.json

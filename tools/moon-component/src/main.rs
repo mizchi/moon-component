@@ -56,6 +56,10 @@ enum Commands {
         #[arg(long)]
         wkg: bool,
 
+        /// Generate wite.config.jsonc for wite pipeline
+        #[arg(long)]
+        wite: bool,
+
         /// Package version for wkg.toml
         #[arg(long, default_value = "0.1.0")]
         wkg_version: String,
@@ -315,6 +319,7 @@ fn main() -> Result<()> {
             impl_dir,
             no_impl,
             wkg,
+            wite,
             wkg_version,
             world,
             pkg_format,
@@ -327,6 +332,7 @@ fn main() -> Result<()> {
             &impl_dir,
             !no_impl,
             wkg,
+            wite,
             &wkg_version,
             world.as_deref(),
             &pkg_format,
@@ -405,6 +411,7 @@ fn main() -> Result<()> {
             dry_run,
             dce,
         } => {
+            eprintln!("⚠ Note: `compose` will be deprecated. Consider using `wite build` for composition + optimization.");
             if let Some(cfg) = config {
                 if wac_file.is_some() {
                     bail!("compose: use either <wac_file> or --config, not both");
@@ -694,6 +701,7 @@ fn cmd_generate(
     impl_dir: &str,
     generate_impl: bool,
     wkg: bool,
+    wite: bool,
     wkg_version: &str,
     world: Option<&str>,
     pkg_format: &str,
@@ -749,6 +757,10 @@ fn cmd_generate(
         args.push("--wkg".to_string());
         args.push("--wkg-version".to_string());
         args.push(wkg_version.to_string());
+    }
+
+    if wite {
+        args.push("--wite".to_string());
     }
 
     // Add pkg-format option
@@ -1188,7 +1200,8 @@ fn cmd_component(
         "gen",
         "impl",
         true,
-        false,
+        false, // wkg
+        false, // wite
         "0.1.0",
         world,
         "json", // default pkg format
@@ -1323,6 +1336,17 @@ version = "0.1.0"
     );
     std::fs::write(project_dir.join("wkg.toml"), wkg_toml)?;
 
+    // Create wite.config.jsonc
+    let wite_config = r#"{
+  // wite configuration
+  // https://github.com/aspect-build/wite
+  "build": { "kind": "component", "flags": ["-Oz"] },
+  "analyze": { "kind": "component", "flags": ["--view=summary"] },
+  "deps": {}
+}
+"#;
+    std::fs::write(project_dir.join("wite.config.jsonc"), wite_config)?;
+
     // Create justfile
     let justfile = r#"# Project
 # Usage: just <command>
@@ -1339,11 +1363,14 @@ build: generate
 componentize: build
     if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
 
+optimize: componentize
+    wite build component.wasm -Oz -o optimized.wasm
+
 run: componentize
     wasmtime run component.wasm
 
 clean:
-    rm -rf _build component.wasm gen impl
+    rm -rf _build component.wasm optimized.wasm gen impl
 "#;
     std::fs::write(project_dir.join("justfile"), justfile)?;
 
@@ -1434,8 +1461,9 @@ fn cmd_init(wit_path: &Path, component_dir: &str, world: Option<&str>) -> Result
         Some(&comp_name),
         "gen",
         "impl",
-        true, // generate_impl
-        true, // wkg
+        true,  // generate_impl
+        true,  // wkg
+        true,  // wite
         "0.1.0",
         world,
         "json",
@@ -1460,11 +1488,14 @@ build: generate
 componentize: build
     if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
 
+optimize: componentize
+    wite build component.wasm -Oz -o optimized.wasm
+
 run: componentize
     wasmtime run component.wasm
 
 clean:
-    rm -rf _build component.wasm gen impl
+    rm -rf _build component.wasm optimized.wasm gen impl
 "#;
         std::fs::write(&justfile_path, justfile)?;
         eprintln!("Created: {}/justfile", component_dir);
@@ -1548,11 +1579,14 @@ build: generate
 componentize: build
     if [ -d impl ]; then moon-component componentize _build/wasm/release/build/impl/impl.wasm --wit-dir wit -o component.wasm; else moon-component componentize _build/wasm/release/build/src/src.wasm --wit-dir wit -o component.wasm; fi
 
+optimize: componentize
+    wite build component.wasm -Oz -o optimized.wasm
+
 run: componentize
     wasmtime run component.wasm
 
 clean:
-    rm -rf _build component.wasm gen impl
+    rm -rf _build component.wasm optimized.wasm gen impl
 "#
 }
 

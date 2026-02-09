@@ -45,6 +45,7 @@ pub(all) struct GeneratorOpts {
   impl_dir : String
   generate_impl : Bool
   generate_wkg : Bool
+  generate_wite : Bool
   wkg_version : String
   pkg_format : PkgFormat
   use_js_string_builtins : Bool

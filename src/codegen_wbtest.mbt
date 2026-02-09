@@ -32,6 +32,7 @@ test "generator_opts_default" {
   inspect(opts.impl_dir, content="impl")
   inspect(opts.generate_impl, content="true")
   inspect(opts.generate_wkg, content="false")
+  inspect(opts.generate_wite, content="false")
   inspect(opts.wkg_version, content="0.1.0")
 }
 
@@ -94,6 +95,107 @@ test "detect_dependencies" {
   inspect(deps[0].ns, content="wasi")
   inspect(deps[0].name, content="http")
   inspect(deps[0].version, content="Some(\"0.2.0\")")
+}
+
+///|
+/// Test generate_wite_config output format
+test "generate_wite_config" {
+  // Create a resolve with external dependency
+  let iref : @resolve.InterfaceRef = { id: 0 }
+  let world : @resolve.World = {
+    name: "my-world",
+    imports: { "http": @resolve.WorldItem::Interface(iref) },
+    exports: {},
+    pkg: Some(1),
+  }
+  let iface : @resolve.Interface = {
+    name: Some("handler"),
+    functions: {},
+    types: {},
+    pkg: Some(0),
+  }
+  let pkg_name1 : @resolve.PackageName = {
+    ns: "wasi",
+    name: "http",
+    version: Some("0.2.0"),
+  }
+  let pkg1 : @resolve.Package = {
+    name: pkg_name1,
+    interfaces: { "handler": 0 },
+    worlds: {},
+  }
+  let pkg_name2 : @resolve.PackageName = {
+    ns: "my",
+    name: "app",
+    version: None,
+  }
+  let pkg2 : @resolve.Package = {
+    name: pkg_name2,
+    interfaces: {},
+    worlds: { "my-world": 0 },
+  }
+  let resolve : @resolve.Resolve = {
+    worlds: [world],
+    interfaces: [iface],
+    types: [],
+    packages: [pkg1, pkg2],
+  }
+  let opts = GeneratorOpts::default()
+  let gen = Generator::new(resolve, 0, opts)
+  gen.generate_wite_config(resolve.worlds[0])
+  // Find the wite.config.jsonc in output
+  let mut found = false
+  for file in gen.output {
+    if file.path == "wite.config.jsonc" {
+      found = true
+      inspect(file.is_stub, content="true")
+      // Check that deps contain wasi:http
+      inspect(
+        file.content.contains("\"wasi:http\": \"https://wa.dev/wasi:http@0.2.0\""),
+        content="true",
+      )
+      // Check build config present
+      inspect(
+        file.content.contains("\"build\": { \"kind\": \"component\", \"flags\": [\"-Oz\"] }"),
+        content="true",
+      )
+    }
+  }
+  inspect(found, content="true")
+}
+
+///|
+/// Test generate_wite_config with no deps
+test "generate_wite_config_no_deps" {
+  let world : @resolve.World = {
+    name: "my-world",
+    imports: {},
+    exports: {},
+    pkg: Some(0),
+  }
+  let pkg_name : @resolve.PackageName = { ns: "my", name: "app", version: None }
+  let pkg : @resolve.Package = {
+    name: pkg_name,
+    interfaces: {},
+    worlds: { "my-world": 0 },
+  }
+  let resolve : @resolve.Resolve = {
+    worlds: [world],
+    interfaces: [],
+    types: [],
+    packages: [pkg],
+  }
+  let opts = GeneratorOpts::default()
+  let gen = Generator::new(resolve, 0, opts)
+  gen.generate_wite_config(resolve.worlds[0])
+  let mut found = false
+  for file in gen.output {
+    if file.path == "wite.config.jsonc" {
+      found = true
+      inspect(file.content.contains("\"deps\": {}"), content="true")
+    }
+  }
+  inspect(found, content="true")
 }
 
 ///|

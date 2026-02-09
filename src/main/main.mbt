@@ -24,7 +24,7 @@ fn main {
   }
   if args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wite                 Generate wite.config.jsonc for wite pipeline\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
@@ -38,6 +38,7 @@ fn main {
   let mut impl_dir = "impl"
   let mut generate_impl = true
   let mut generate_wkg = false
+  let mut generate_wite = false
   let mut wkg_version = "0.1.0"
   let mut pkg_format : @codegen.PkgFormat = @codegen.Json
   let mut use_js_string_builtins = false
@@ -72,6 +73,9 @@ fn main {
       i = i + 1
     } else if args[i] == "--wkg" {
       generate_wkg = true
+      i = i + 1
+    } else if args[i] == "--wite" {
+      generate_wite = true
       i = i + 1
     } else if args[i] == "--wkg-version" && i + 1 < args.length() {
       wkg_version = args[i + 1]
@@ -148,6 +152,7 @@ fn main {
     impl_dir,
     generate_impl,
     generate_wkg,
+    generate_wite,
     wkg_version,
     pkg_format,
     use_js_string_builtins,

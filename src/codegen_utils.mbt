@@ -383,6 +383,62 @@ fn Generator::generate_wkg_toml(
 }
 
 ///|
+/// Generate wite.config.jsonc for wite pipeline
+fn Generator::generate_wite_config(
+  self : Generator,
+  world : @resolve.World,
+) -> Unit {
+  let sb = StringBuilder::new()
+  sb.write_string("{\n")
+  sb.write_string("  // wite configuration\n")
+  sb.write_string("  // https://github.com/aspect-build/wite\n")
+  sb.write_string(
+    "  \"build\": { \"kind\": \"component\", \"flags\": [\"-Oz\"] },\n",
+  )
+  sb.write_string(
+    "  \"analyze\": { \"kind\": \"component\", \"flags\": [\"--view=summary\"] },\n",
+  )
+
+  // Dependencies
+  let deps = self.detect_dependencies(world)
+  sb.write_string("  \"deps\": {")
+  if deps.length() > 0 {
+    sb.write_string("\n")
+    for i, dep in deps {
+      sb.write_string("    \"")
+      sb.write_string(dep.ns)
+      sb.write_string(":")
+      sb.write_string(dep.name)
+      sb.write_string("\": \"https://wa.dev/")
+      sb.write_string(dep.ns)
+      sb.write_string(":")
+      sb.write_string(dep.name)
+      match dep.version {
+        Some(v) => {
+          sb.write_string("@")
+          sb.write_string(v)
+        }
+        None => ()
+      }
+      sb.write_string("\"")
+      if i < deps.length() - 1 {
+        sb.write_string(",")
+      }
+      sb.write_string("\n")
+    }
+    sb.write_string("  }\n")
+  } else {
+    sb.write_string("}\n")
+  }
+  sb.write_string("}\n")
+  let path = match self.opts.out_dir {
+    Some(out) => out + "/wite.config.jsonc"
+    None => "wite.config.jsonc"
+  }
+  self.output.push({ path, content: sb.to_string(), is_stub: true })
+}
+
+///|
 /// Generate impl/impl.mbt (user implementation stub)
 fn Generator::generate_impl(
   self : Generator,
