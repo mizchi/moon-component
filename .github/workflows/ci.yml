@@ -9,7 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: moonbit-community/setup-moonbit@main
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+      - name: Moon version
+        run: moon version --all
       - uses: dtolnay/rust-toolchain@stable
       - run: moon update
       - run: cargo build --manifest-path tools/moon-component/Cargo.toml
