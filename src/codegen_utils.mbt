@@ -270,20 +270,12 @@ fn Generator::world_path(
 }
 
 ///|
-/// Dependency info for wkg.toml
-pub struct WkgDependency {
-  ns : String
-  name : String
-  version : String?
-} derive(Show, Eq)
-
-///|
 /// Detect dependencies from world imports
-fn Generator::detect_dependencies(
+pub fn Generator::detect_dependencies(
   self : Generator,
   world : @resolve.World,
-) -> Array[WkgDependency] {
-  let deps : Array[WkgDependency] = []
+) -> Array[@resolve.PackageName] {
+  let deps : Array[@resolve.PackageName] = []
   let seen : Map[String, Bool] = {}
 
   // Get current package id

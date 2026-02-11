@@ -17,87 +17,24 @@ pub fn WkgRegistry::new(base_url : String) -> WkgRegistry {
 }
 
 ///|
-/// Package reference for wa.dev
-pub struct PackageRef {
-  ns : String
-  name : String
-  version : String?
-} derive(Show, Eq)
-
-///|
-pub fn PackageRef::new(
-  ns : String,
-  name : String,
-  version : String?,
-) -> PackageRef {
-  { ns, name, version }
-}
-
-///|
-/// Parse package reference from string like "wasi:http@0.2.0"
-pub fn PackageRef::parse(s : String) -> PackageRef? {
-  // Split by @ for version
-  let at_parts : Array[String] = s
-    .split("@")
-    .map(fn(sv) { sv.to_string() })
-    .collect()
-  let name_part = at_parts[0]
-  let version : String? = if at_parts.length() > 1 {
-    Some(at_parts[1])
-  } else {
-    None
-  }
-
-  // Split by : for namespace
-  let colon_parts : Array[String] = name_part
-    .split(":")
-    .map(fn(sv) { sv.to_string() })
-    .collect()
-  if colon_parts.length() >= 2 {
-    Some({ ns: colon_parts[0], name: colon_parts[1], version })
-  } else {
-    None
-  }
-}
-
-///|
-pub fn PackageRef::to_string(self : PackageRef) -> String {
-  let sb = StringBuilder::new()
-  sb.write_string(self.ns)
-  sb.write_string(":")
-  sb.write_string(self.name)
-  match self.version {
-    Some(v) => {
-      sb.write_string("@")
-      sb.write_string(v)
-    }
-    None => ()
-  }
-  sb.to_string()
-}
-
-///|
 /// Get the wa.dev package URL
-pub fn WkgRegistry::package_url(self : WkgRegistry, pkg : PackageRef) -> String {
+pub fn WkgRegistry::package_url(
+  self : WkgRegistry,
+  pkg : @resolve.PackageName,
+) -> String {
   let sb = StringBuilder::new()
   sb.write_string(self.base_url)
   sb.write_string("/")
-  sb.write_string(pkg.ns)
-  sb.write_string(":")
-  sb.write_string(pkg.name)
-  match pkg.version {
-    Some(v) => {
-      sb.write_string("@")
-      sb.write_string(v)
-    }
-    None => ()
-  }
+  sb.write_string(pkg.to_string())
   sb.to_string()
 }
 
 ///|
 /// Get the download URL for a package's WIT files
-pub fn WkgRegistry::wit_url(self : WkgRegistry, pkg : PackageRef) -> String {
+pub fn WkgRegistry::wit_url(
+  self : WkgRegistry,
+  pkg : @resolve.PackageName,
+) -> String {
   let sb = StringBuilder::new()
   sb.write_string(self.base_url)
   sb.write_string("/v1/")
@@ -117,19 +54,13 @@ pub fn WkgRegistry::wit_url(self : WkgRegistry, pkg : PackageRef) -> String {
 
 ///|
 /// Command to fetch package using wkg CLI
-pub fn wkg_fetch_command(pkg : PackageRef, output_dir : String) -> String {
+pub fn wkg_fetch_command(
+  pkg : @resolve.PackageName,
+  output_dir : String,
+) -> String {
   let sb = StringBuilder::new()
   sb.write_string("wkg wit fetch ")
-  sb.write_string(pkg.ns)
-  sb.write_string(":")
-  sb.write_string(pkg.name)
-  match pkg.version {
-    Some(v) => {
-      sb.write_string("@")
-      sb.write_string(v)
-    }
-    None => ()
-  }
+  sb.write_string(pkg.to_string())
   sb.write_string(" -o ")
   sb.write_string(output_dir)
   sb.to_string()
@@ -138,7 +69,7 @@ pub fn wkg_fetch_command(pkg : PackageRef, output_dir : String) -> String {
 ///|
 /// Generate shell script to fetch all dependencies
 pub fn generate_fetch_script(
-  deps : Array[PackageRef],
+  deps : Array[@resolve.PackageName],
   wit_dir : String,
 ) -> String {
   let sb = StringBuilder::new()
@@ -155,16 +86,7 @@ pub fn generate_fetch_script(
     sb.write_string(dep.to_string())
     sb.write_string("...\"\n")
     sb.write_string("wkg wit fetch ")
-    sb.write_string(dep.ns)
-    sb.write_string(":")
-    sb.write_string(dep.name)
-    match dep.version {
-      Some(v) => {
-        sb.write_string("@")
-        sb.write_string(v)
-      }
-      None => ()
-    }
+    sb.write_string(dep.to_string())
     sb.write_string(" -o \"$WIT_DIR/deps/")
     sb.write_string(dep.ns)
     sb.write_string("_")

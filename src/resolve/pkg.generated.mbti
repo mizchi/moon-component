@@ -84,6 +84,8 @@ pub(all) struct PackageName {
   name : String
   version : String?
 }
+pub fn PackageName::parse(String) -> Self?
+pub fn PackageName::to_string(Self) -> String
 pub impl Eq for PackageName
 pub impl Show for PackageName
 pub impl ToJson for PackageName

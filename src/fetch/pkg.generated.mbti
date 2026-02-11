@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/moon_component/src/fetch"
+
+import {
+  "mizchi/moon_component/src/resolve",
+  "mizchi/oci_wasm/types",
+}
+
+// Values
+pub async fn fetch_wit_deps(Array[@resolve.PackageName], String, registry_host? : String) -> Unit
+
+pub async fn fetch_wit_package(@resolve.PackageName, String, registry_host? : String) -> Unit
+
+pub fn to_oci_pkg(@resolve.PackageName) -> @types.PackageName?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

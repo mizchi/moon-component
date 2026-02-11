@@ -37,15 +37,6 @@ test "generator_opts_default" {
 }
 
 ///|
-/// Test WkgDependency type
-test "wkg_dependency" {
-  let dep : WkgDependency = { ns: "wasi", name: "http", version: Some("0.2.0") }
-  inspect(dep.ns, content="wasi")
-  inspect(dep.name, content="http")
-  inspect(dep.version, content="Some(\"0.2.0\")")
-}
-
-///|
 /// Test detect_dependencies with external imports
 test "detect_dependencies" {
   // Create a resolve with two packages

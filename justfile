@@ -59,9 +59,9 @@ fmt:
 info:
     moon info
 
-# Check code
+# Check code (native target required for oci_wasm dependency)
 check:
-    moon check
+    moon check --target native
 
 # Clean build artifacts
 clean:

@@ -374,6 +374,46 @@ pub impl @json.FromJson for PackageName with from_json(json, path) {
 }
 
 ///|
+/// Parse package name from string like "wasi:http@0.2.0"
+pub fn PackageName::parse(s : String) -> PackageName? {
+  let at_parts : Array[String] = s
+    .split("@")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
+  let name_part = at_parts[0]
+  let version : String? = if at_parts.length() > 1 {
+    Some(at_parts[1])
+  } else {
+    None
+  }
+  let colon_parts : Array[String] = name_part
+    .split(":")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
+  if colon_parts.length() >= 2 {
+    Some({ ns: colon_parts[0], name: colon_parts[1], version })
+  } else {
+    None
+  }
+}
+
+///|
+pub fn PackageName::to_string(self : PackageName) -> String {
+  let sb = StringBuilder::new()
+  sb.write_string(self.ns)
+  sb.write_string(":")
+  sb.write_string(self.name)
+  match self.version {
+    Some(v) => {
+      sb.write_string("@")
+      sb.write_string(v)
+    }
+    None => ()
+  }
+  sb.to_string()
+}
+
+///|
 /// Package definition
 pub(all) struct Package {
   name : PackageName

@@ -34,6 +34,7 @@ pub struct Generator {
   exports_info : Array[ExportInfo]
   moon_mod_name : Ref[String]
 }
+pub fn Generator::detect_dependencies(Self, @resolve.World) -> Array[@resolve.PackageName]
 pub fn Generator::generate(Self) -> Array[GeneratedFile]
 pub fn Generator::new(@resolve.Resolve, Int, GeneratorOpts) -> Self
 
@@ -59,14 +60,6 @@ pub(all) enum PkgFormat {
 }
 pub impl Eq for PkgFormat
 pub impl Show for PkgFormat
-
-pub struct WkgDependency {
-  ns : String
-  name : String
-  version : String?
-}
-pub impl Eq for WkgDependency
-pub impl Show for WkgDependency
 
 // Type aliases
 

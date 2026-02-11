@@ -205,6 +205,10 @@ fn check_wit_type_def(
       check_wit_resource(id, comp_val, space, type_map, res_map, ctx)
     @wit.RTypeKind::Handle(kind) =>
       check_wit_handle(kind, comp_val, space, type_map, res_map, ctx)
+    @wit.RTypeKind::Future(_) =>
+      Err("future type is not supported yet")
+    @wit.RTypeKind::Stream(_) =>
+      Err("stream type is not supported yet")
   }
 }
 

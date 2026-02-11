@@ -1,6 +1,6 @@
 ///|
 /// CLI entry point for moon-component
-fn main {
+async fn main {
   let args = @sys.get_cli_args()
   if args.length() >= 2 && args[1] == "plug" {
     cmd_plug(args)
@@ -22,9 +22,13 @@ fn main {
     cmd_targets(args)
     return
   }
+  if args.length() >= 2 && args[1] == "fetch" {
+    cmd_fetch(args)
+    return
+  }
   if args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wite                 Generate wite.config.jsonc for wite pipeline\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n       moon-component fetch [options] <pkg-spec>...\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wite                 Generate wite.config.jsonc for wite pipeline\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
@@ -661,4 +665,99 @@ fn mkdir_p(dir : String) -> Unit {
       _ => () // Directory may already exist
     }
   }
+}
+
+///|
+async fn cmd_fetch(args : Array[String]) -> Unit {
+  let mut registry_host : String? = None
+  let mut wit_dir = "wit"
+  let mut from_wit : String? = None
+  let pkg_specs : Array[String] = []
+  let mut i = 2
+  while i < args.length() {
+    if args[i] == "--registry" && i + 1 < args.length() {
+      registry_host = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--wit-dir" && i + 1 < args.length() {
+      wit_dir = args[i + 1]
+      i = i + 2
+    } else if args[i] == "--from-wit" && i + 1 < args.length() {
+      from_wit = Some(args[i + 1])
+      i = i + 2
+    } else if args[i].has_prefix("--") {
+      println("Unknown option: " + args[i])
+      fetch_usage()
+      @sys.exit(1)
+    } else {
+      pkg_specs.push(args[i])
+      i = i + 1
+    }
+  }
+  if from_wit is Some(wit_path) {
+    // Resolve WIT and fetch all dependencies
+    let resolved_result : Result[@wit.ResolveInput, @wit.ParseError] = @wit.resolve_path(
+      wit_path,
+    )
+    let resolved = match resolved_result {
+      Ok(v) => v
+      Err(e) => {
+        println("Error resolving WIT: " + e.to_string())
+        @sys.exit(1)
+        abort("exit")
+      }
+    }
+    let json = resolved.to_json()
+    let input : @resolve.ResolveInput = @json.from_json(json) catch {
+      e => {
+        println("Error decoding ResolveInput: " + e.to_string())
+        @sys.exit(1)
+        abort("exit")
+      }
+    }
+    let opts = @codegen.GeneratorOpts::default()
+    let gen = @codegen.Generator::new(input.resolve, input.world_id, opts)
+    let world = input.resolve.worlds[input.world_id]
+    let deps = gen.detect_dependencies(world)
+    if deps.length() == 0 {
+      println("No external dependencies found.")
+      return
+    }
+    println("Fetching " + deps.length().to_string() + " dependencies...")
+    @fetch.fetch_wit_deps(deps, wit_dir, registry_host?) catch {
+      e => {
+        println("Error fetching dependencies: " + e.to_string())
+        @sys.exit(1)
+      }
+    }
+    println("Done.")
+    return
+  }
+  if pkg_specs.length() == 0 {
+    fetch_usage()
+    @sys.exit(1)
+  }
+  // Fetch specified packages
+  for spec in pkg_specs {
+    guard @resolve.PackageName::parse(spec) is Some(pkg) else {
+      println("Invalid package spec: " + spec)
+      println("Expected format: namespace:name@version (e.g., wasi:http@0.2.0)")
+      @sys.exit(1)
+      continue
+    }
+    println("Fetching " + pkg.to_string() + "...")
+    @fetch.fetch_wit_package(pkg, wit_dir + "/deps", registry_host?) catch {
+      e => {
+        println("Error fetching " + spec + ": " + e.to_string())
+        @sys.exit(1)
+      }
+    }
+  }
+  println("Done.")
+}
+
+///|
+fn fetch_usage() -> Unit {
+  println(
+    "Usage: moon-component fetch [options] <pkg-spec>...\n       moon-component fetch --from-wit <wit-path> [options]\n\nOptions:\n  --registry <host>   Registry host (default: wa.dev)\n  --wit-dir <dir>     WIT output directory (default: wit)\n  --from-wit <path>   Resolve WIT and fetch all dependencies\n\nExamples:\n  moon-component fetch wasi:http@0.2.0\n  moon-component fetch --from-wit wit/world.wit --wit-dir wit",
+  )
 }

@@ -1,32 +1,25 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/moon_component/src/wkg"
 
-// Values
-pub fn generate_fetch_script(Array[PackageRef], String) -> String
+import {
+  "mizchi/moon_component/src/resolve",
+}
 
-pub fn wkg_fetch_command(PackageRef, String) -> String
+// Values
+pub fn generate_fetch_script(Array[@resolve.PackageName], String) -> String
+
+pub fn wkg_fetch_command(@resolve.PackageName, String) -> String
 
 // Errors
 
 // Types and methods
-pub struct PackageRef {
-  ns : String
-  name : String
-  version : String?
-}
-pub fn PackageRef::new(String, String, String?) -> Self
-pub fn PackageRef::parse(String) -> Self?
-pub fn PackageRef::to_string(Self) -> String
-pub impl Eq for PackageRef
-pub impl Show for PackageRef
-
 pub struct WkgRegistry {
   base_url : String
 }
 pub fn WkgRegistry::default() -> Self
 pub fn WkgRegistry::new(String) -> Self
-pub fn WkgRegistry::package_url(Self, PackageRef) -> String
-pub fn WkgRegistry::wit_url(Self, PackageRef) -> String
+pub fn WkgRegistry::package_url(Self, @resolve.PackageName) -> String
+pub fn WkgRegistry::wit_url(Self, @resolve.PackageName) -> String
 pub impl Show for WkgRegistry
 
 // Type aliases
