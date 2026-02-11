@@ -275,7 +275,7 @@ interface blob-store {
 
 ### Generated MoonBit Code
 
-```moonbit
+```moonbit nocheck
 // Resource type (handle)
 
 ///|
@@ -293,7 +293,7 @@ pub fn get_blob_size(b : Blob) -> UInt
 
 ### Implementation Pattern (Copy-based)
 
-```moonbit
+```moonbit nocheck
 // Handle table for resource storage
 
 ///|

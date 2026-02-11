@@ -1,5 +1,0 @@
-{
-  "import": [
-    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" }
-  ]
-}

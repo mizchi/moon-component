@@ -86,7 +86,6 @@ fn skip_wasm_limits(parser : Parser) -> Unit raise ParseError {
   let _ = parser.read_u32_leb128()
   if flags == 0x01 {
     let _ = parser.read_u32_leb128()
-
   } else if flags != 0x00 {
     raise ParseError::InvalidFormat("invalid limits")
   }
@@ -107,7 +106,6 @@ fn skip_wasm_memory_type(parser : Parser) -> Unit raise ParseError {
 fn skip_wasm_global_type(parser : Parser) -> Unit raise ParseError {
   let _ = parser.read_byte()
   let _ = parser.read_byte()
-
 }
 
 ///|
@@ -120,12 +118,10 @@ fn parse_wasm_func_type_raw(parser : Parser) -> Bytes raise ParseError {
   let param_count = parser.read_u32_leb128()
   for _ in 0U..<param_count {
     let _ = parser.read_byte()
-
   }
   let result_count = parser.read_u32_leb128()
   for _ in 0U..<result_count {
     let _ = parser.read_byte()
-
   }
   let end = parser.get_pos()
   parser.slice(start, end)
@@ -362,12 +358,10 @@ fn skip_core_func_type_for_module_type(
   let param_count = parser.read_u32_leb128()
   for _ in 0U..<param_count {
     let _ = parser.read_byte()
-
   }
   let result_count = parser.read_u32_leb128()
   for _ in 0U..<result_count {
     let _ = parser.read_byte()
-
   }
 }
 

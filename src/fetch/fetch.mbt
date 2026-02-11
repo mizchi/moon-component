@@ -85,9 +85,7 @@ pub async fn fetch_wit_deps(
     let path = dir + "/" + dep.ns + "_" + dep.name + ".wasm"
     @fs.write_bytes_to_file(path, wasm_bytes) catch {
       e =>
-        raise Failure::Failure(
-          "failed to write " + path + ": " + e.to_string(),
-        )
+        raise Failure::Failure("failed to write " + path + ": " + e.to_string())
     }
     println("Fetched " + dep.to_string() + " -> " + path)
   }

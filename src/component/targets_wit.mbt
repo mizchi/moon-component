@@ -205,10 +205,8 @@ fn check_wit_type_def(
       check_wit_resource(id, comp_val, space, type_map, res_map, ctx)
     @wit.RTypeKind::Handle(kind) =>
       check_wit_handle(kind, comp_val, space, type_map, res_map, ctx)
-    @wit.RTypeKind::Future(_) =>
-      Err("future type is not supported yet")
-    @wit.RTypeKind::Stream(_) =>
-      Err("stream type is not supported yet")
+    @wit.RTypeKind::Future(_) => Err("future type is not supported yet")
+    @wit.RTypeKind::Stream(_) => Err("stream type is not supported yet")
   }
 }
 
@@ -257,9 +255,11 @@ fn check_wit_record(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_record(
-          wit_res, id, fields, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_record(
+            wit_res, id, fields, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected record")
@@ -308,9 +308,11 @@ fn check_wit_variant(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_variant(
-          wit_res, id, cases, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_variant(
+            wit_res, id, cases, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected variant")
@@ -338,9 +340,11 @@ fn check_wit_list(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_list(
-          wit_res, id, inner, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_list(
+            wit_res, id, inner, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected list")
@@ -368,9 +372,11 @@ fn check_wit_option(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_option(
-          wit_res, id, inner, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_option(
+            wit_res, id, inner, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected option")
@@ -418,9 +424,11 @@ fn check_wit_result(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_result(
-          wit_res, id, ok, err, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_result(
+            wit_res, id, ok, err, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected result")
@@ -467,9 +475,11 @@ fn check_wit_tuple(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_tuple(
-          wit_res, id, items, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_tuple(
+            wit_res, id, items, def, def_space, type_map, res_map, ctx,
+          )
+        },
         ctx,
       )
     _ => Err("expected tuple")
@@ -505,9 +515,9 @@ fn check_wit_flags(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_flags(
-          id, names, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_flags(id, names, def, def_space, type_map, res_map, ctx)
+        },
         ctx,
       )
     _ => Err("expected flags")
@@ -543,9 +553,9 @@ fn check_wit_enum(
         space,
         type_map,
         res_map,
-        (def, def_space) => check_wit_enum(
-          id, names, def, def_space, type_map, res_map, ctx,
-        ),
+        (def, def_space) => {
+          check_wit_enum(id, names, def, def_space, type_map, res_map, ctx)
+        },
         ctx,
       )
     _ => Err("expected enum")
