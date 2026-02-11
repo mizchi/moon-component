@@ -1,6 +1,6 @@
 {
   "name": "mizchi/moon_component",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "deps": {
     "moonbitlang/x": "0.4.40",
     "mizchi/wit": "0.2.0",
