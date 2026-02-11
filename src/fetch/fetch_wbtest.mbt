@@ -6,9 +6,7 @@ test "to_oci_pkg" {
     name: "http",
     version: Some("0.2.0"),
   }
-  guard to_oci_pkg(pkg) is Some(oci_pkg) else {
-    fail("expected Some")
-  }
+  guard to_oci_pkg(pkg) is Some(oci_pkg) else { fail("expected Some") }
   inspect(oci_pkg.to_string(), content="wasi:http")
 }
 
@@ -16,8 +14,6 @@ test "to_oci_pkg" {
 /// Test to_oci_pkg without version
 test "to_oci_pkg_no_version" {
   let pkg : @resolve.PackageName = { ns: "wasi", name: "cli", version: None }
-  guard to_oci_pkg(pkg) is Some(oci_pkg) else {
-    fail("expected Some")
-  }
+  guard to_oci_pkg(pkg) is Some(oci_pkg) else { fail("expected Some") }
   inspect(oci_pkg.to_string(), content="wasi:cli")
 }

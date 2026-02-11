@@ -217,7 +217,6 @@ fn parse_externname(parser : Parser) -> (Bytes, Bytes?) raise ParseError {
       let hash_len = parser.read_u32_leb128()
       for _ in 0U..<hash_len {
         let _ = parser.read_byte()
-
       }
       (parser.read_name(), None)
     }
@@ -225,7 +224,6 @@ fn parse_externname(parser : Parser) -> (Bytes, Bytes?) raise ParseError {
       let hash_len = parser.read_u32_leb128()
       for _ in 0U..<hash_len {
         let _ = parser.read_byte()
-
       }
       (parser.read_name(), None)
     }
@@ -317,7 +315,6 @@ fn parse_component_instance(
         let _ = parser.read_name()
         let _ = parse_component_external_kind(parser)
         let _ = parser.read_u32_leb128()
-
       }
       ComponentInstanceDef::Instantiate(component_index)
     }
@@ -346,7 +343,6 @@ fn parse_component_type(parser : Parser) -> ComponentTypeDef raise ParseError {
         0x00 => ()
         0x01 => {
           let _ = parser.read_u32_leb128()
-
         }
         _ => raise ParseError::InvalidFormat("invalid resource destructor")
       }
@@ -720,20 +716,17 @@ fn skip_core_type(parser : Parser) -> Unit raise ParseError {
           let _ = parser.read_name()
           let _ = parser.read_byte()
           let _ = parser.read_u32_leb128()
-
         }
         0x01 => skip_rec_group(parser)
         0x02 => {
           let _ = parser.read_byte()
           let _ = parser.read_u32_leb128()
           let _ = parser.read_u32_leb128()
-
         }
         0x03 => {
           let _ = parser.read_name()
           let _ = parser.read_byte()
           let _ = parser.read_u32_leb128()
-
         }
         _ => raise ParseError::InvalidFormat("invalid core type decl")
       }
@@ -771,12 +764,10 @@ fn skip_core_func_type(parser : Parser) -> Unit raise ParseError {
   let param_count = parser.read_u32_leb128()
   for _ in 0U..<param_count {
     let _ = parser.read_byte()
-
   }
   let result_count = parser.read_u32_leb128()
   for _ in 0U..<result_count {
     let _ = parser.read_byte()
-
   }
 }
 
@@ -824,27 +815,21 @@ fn parse_externdesc_raw(
         )
       }
       let _ = parser.read_u32_leb128()
-
     }
     0x01 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x02 => {
       let _ = skip_component_valtype(parser)
-
     }
     0x03 => {
       let _ = skip_type_bounds(parser)
-
     }
     0x04 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x05 => {
       let _ = parser.read_u32_leb128()
-
     }
     _ => raise ParseError::InvalidFormat("invalid extern desc kind")
   }
@@ -876,27 +861,21 @@ fn skip_externdesc_with_kind(
         )
       }
       let _ = parser.read_u32_leb128()
-
     }
     0x01 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x02 => {
       let _ = skip_component_valtype(parser)
-
     }
     0x03 => {
       let _ = skip_type_bounds(parser)
-
     }
     0x04 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x05 => {
       let _ = parser.read_u32_leb128()
-
     }
     _ => raise ParseError::InvalidFormat("invalid extern desc kind")
   }
@@ -908,7 +887,6 @@ fn skip_type_bounds(parser : Parser) -> Unit raise ParseError {
   match kind {
     0x00 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x01 => ()
     _ => raise ParseError::InvalidFormat("invalid type bounds kind")
@@ -951,7 +929,6 @@ fn skip_component_valtype(parser : Parser) -> Unit raise ParseError {
         let has_refines = parser.read_byte().to_uint()
         if has_refines == 0x01 {
           let _ = parser.read_u32_leb128()
-
         }
       }
     }
@@ -966,14 +943,12 @@ fn skip_component_valtype(parser : Parser) -> Unit raise ParseError {
       let flag_count = parser.read_u32_leb128()
       for _ in 0U..<flag_count {
         let _ = parser.read_name()
-
       }
     }
     0x6D => {
       let case_count = parser.read_u32_leb128()
       for _ in 0U..<case_count {
         let _ = parser.read_name()
-
       }
     }
     0x6B => skip_component_valtype(parser)
@@ -989,16 +964,13 @@ fn skip_component_valtype(parser : Parser) -> Unit raise ParseError {
     }
     0x69 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x68 => {
       let _ = parser.read_u32_leb128()
-
     }
     0x67 => {
       skip_component_valtype(parser)
       let _ = parser.read_u32_leb128()
-
     }
     0x66 => {
       let has_type = parser.read_byte().to_uint()
@@ -1020,7 +992,6 @@ fn skip_component_valtype(parser : Parser) -> Unit raise ParseError {
         raise ParseError::InvalidFormat("invalid component val type")
       }
       let _ = idx
-
     }
   }
 }

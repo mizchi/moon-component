@@ -1,0 +1,7 @@
+import {
+  "mizchi/moon_component" @lib,
+}
+
+options(
+  "is-main": true,
+)

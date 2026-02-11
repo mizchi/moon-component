@@ -1,0 +1,3 @@
+import {
+  "mizchi/moon_component/src/resolve" @resolve,
+}
