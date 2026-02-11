@@ -1,13 +1,13 @@
 import {
   "moonbitlang/core/json",
-  "moonbitlang/x/fs" as @fs,
-  "moonbitlang/x/sys" as @sys,
-  "mizchi/wit" as @wit,
-  "mizchi/moon_component/src" as @codegen,
-  "mizchi/moon_component/src/resolve" as @resolve,
-  "mizchi/moon_component/src/component" as @component,
-  "mizchi/mwac/composer" as @composer,
-  "mizchi/moon_component/src/fetch" as @fetch,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+  "mizchi/wit" @wit,
+  "mizchi/moon_component/src" @codegen,
+  "mizchi/moon_component/src/resolve" @resolve,
+  "mizchi/moon_component/src/component" @component,
+  "mizchi/mwac/composer" @composer,
+  "mizchi/moon_component/src/fetch" @fetch,
   "moonbitlang/async",
 }
 

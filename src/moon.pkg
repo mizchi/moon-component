@@ -1,5 +1,5 @@
 import {
-  "mizchi/moon_component/src/resolve" as @resolve,
+  "mizchi/moon_component/src/resolve" @resolve,
   "moonbitlang/core/json",
-  "moonbitlang/x/fs" as @fs,
+  "moonbitlang/x/fs" @fs,
 }

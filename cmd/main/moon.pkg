@@ -1,5 +1,5 @@
 import {
-  "mizchi/moon_component" as @lib,
+  "mizchi/moon_component" @lib,
 }
 
 options(
