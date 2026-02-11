@@ -142,16 +142,12 @@ test "generate_wite_config" {
       inspect(file.is_stub, content="true")
       // Check that deps contain wasi:http
       inspect(
-        file.content.contains(
-          "\"wasi:http\": \"https://wa.dev/wasi:http@0.2.0\"",
-        ),
+        file.content.contains("\"wasi:http\": \"https://wa.dev/wasi:http@0.2.0\""),
         content="true",
       )
       // Check build config present
       inspect(
-        file.content.contains(
-          "\"build\": { \"kind\": \"component\", \"flags\": [\"-Oz\"] }",
-        ),
+        file.content.contains("\"build\": { \"kind\": \"component\", \"flags\": [\"-Oz\"] }"),
         content="true",
       )
     }

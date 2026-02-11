@@ -1,9 +1,0 @@
-import {
-  "moonbitlang/core/bytes",
-  "moonbitlang/core/encoding/utf8",
-  "mizchi/wit" @wit,
-}
-
-import {
-  "moonbitlang/x/fs" @fs,
-} for "test"

@@ -1,0 +1,7 @@
+{
+  "import": [
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" },
+    "moonbitlang/core/json",
+    { "path": "moonbitlang/x/fs", "alias": "fs" }
+  ]
+}
