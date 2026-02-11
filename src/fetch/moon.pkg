@@ -1,9 +1,9 @@
 import {
-  "mizchi/moon_component/src/resolve" @resolve,
-  "mizchi/oci_wasm/types" @oci_types,
-  "mizchi/oci_wasm/discovery" @discovery,
-  "mizchi/oci_wasm/oci" @oci,
-  "moonbitlang/x/fs" @fs,
+  "mizchi/moon_component/src/resolve" as @resolve,
+  "mizchi/oci_wasm/types" as @oci_types,
+  "mizchi/oci_wasm/discovery" as @discovery,
+  "mizchi/oci_wasm/oci" as @oci,
+  "moonbitlang/x/fs" as @fs,
 }
 
 options(
