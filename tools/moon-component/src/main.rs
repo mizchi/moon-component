@@ -1377,6 +1377,10 @@ clean:
 "#;
     std::fs::write(project_dir.join("justfile"), justfile)?;
 
+    // Create .gitignore
+    let gitignore = "_build/\n.mooncakes/\n*.wasm\n";
+    std::fs::write(project_dir.join(".gitignore"), gitignore)?;
+
     eprintln!("Created project: {}", name);
     eprintln!("\nNext steps:");
     eprintln!("  cd {}", name);
@@ -1505,7 +1509,17 @@ clean:
 "#;
         std::fs::write(&justfile_path, justfile)?;
         eprintln!("Created: {}/justfile", component_dir);
-    } else {
+    }
+
+    // Create .gitignore (skip if exists)
+    let gitignore_path = comp_dir.join(".gitignore");
+    if !gitignore_path.exists() {
+        let gitignore = "_build/\n.mooncakes/\n*.wasm\n";
+        std::fs::write(&gitignore_path, gitignore)?;
+        eprintln!("Created: {}/.gitignore", component_dir);
+    }
+
+    if justfile_path.exists() {
         eprintln!("Skipped: {}/justfile (already exists)", component_dir);
         let existing = std::fs::read_to_string(&justfile_path)
             .with_context(|| format!("failed to read {}", justfile_path.display()))?;
