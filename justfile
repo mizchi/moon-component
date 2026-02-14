@@ -76,6 +76,17 @@ example-hello:
         -o examples/hello/hello.component.wasm
     wasm-tools component wit examples/hello/hello.component.wasm
 
+# Build hello-wite example (moon-component + wite integration)
+example-hello-wite:
+    {{moon_component}} generate examples/hello-wite/wit/world.wit -p hello-wite -o examples/hello-wite
+    moon build --target wasm --release --directory examples/hello-wite
+    {{moon_component}} componentize examples/hello-wite/_build/wasm/release/build/src/src.wasm \
+        --wit-dir examples/hello-wite/wit \
+        -o examples/hello-wite/hello-wite.component.wasm
+    wite optimize examples/hello-wite/hello-wite.component.wasm \
+        examples/hello-wite/hello-wite.min.wasm --kind=component -Oz
+    wite analyze component examples/hello-wite/hello-wite.component.wasm
+
 # Generate WIT from MoonBit (reverse example)
 example-reverse:
     {{moon_component}} wit-from-moonbit examples/reverse -o examples/reverse/wit/world.wit -n myapp

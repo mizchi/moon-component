@@ -1,0 +1,37 @@
+# hello-wite example: moon-component + wite integration
+default:
+    @just --list
+
+# Step 1: Generate MoonBit bindings from WIT
+generate:
+    moon-component generate wit/world.wit -p hello-wite -o .
+
+# Step 2: Build core wasm
+build:
+    moon build --target wasm --release
+
+# Step 3: Create component wasm
+componentize: build
+    moon-component componentize _build/wasm/release/build/src/src.wasm \
+        --wit-dir wit -o hello-wite.component.wasm
+
+# Step 4: Optimize with wite
+optimize: componentize
+    wite optimize hello-wite.component.wasm hello-wite.min.wasm --kind=component -Oz
+    @echo "--- Size comparison ---"
+    @ls -la hello-wite.component.wasm hello-wite.min.wasm
+
+# Step 5: Analyze component
+analyze: componentize
+    wite analyze component hello-wite.component.wasm
+
+# Full pipeline
+all: optimize analyze
+
+# Verify with wasm-tools
+verify: componentize
+    wasm-tools component wit hello-wite.component.wasm
+
+# Clean
+clean:
+    rm -rf _build hello-wite.component.wasm hello-wite.min.wasm

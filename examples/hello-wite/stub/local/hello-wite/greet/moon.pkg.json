@@ -1,0 +1,5 @@
+{
+  "import": [
+    { "path": "hello-wite/gen/interface/local/hello-wite/greet", "alias": "exports" }
+  ]
+}

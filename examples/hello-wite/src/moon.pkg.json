@@ -1,0 +1,24 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "hello-wite/gen/cabi", "alias": "cabi" },
+    { "path": "hello-wite/gen/interface/local/hello-wite/greet", "alias": "exports" },
+    { "path": "hello-wite/stub/local/hello-wite/greet", "alias": "stub0" }
+  ],
+  "link": {
+    "wasm": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportGreet:local:hello-wite/greet#greet"
+      ],
+      "export-memory-name": "memory"
+    },
+    "wasm-gc": {
+      "exports": [
+        "cabi_realloc:cabi_realloc",
+        "wasmExportGreet:local:hello-wite/greet#greet"
+      ],
+      "export-memory-name": "memory"
+    }
+  }
+}

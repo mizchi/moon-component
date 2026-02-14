@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hello-wite/stub/local/hello-wite/greet"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct GreetImpl {
+}
+pub impl @hello-wite/gen/interface/local/hello-wite/greet.Exports for GreetImpl
+
+// Type aliases
+
+// Traits
+
