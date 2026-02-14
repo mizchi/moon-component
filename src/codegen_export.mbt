@@ -269,11 +269,7 @@ fn Generator::type_to_ffi_params(
           let params : Array[String] = [name + "_disc : Int"]
           for i, ft in joined {
             params.push(
-              name +
-              "_p" +
-              i.to_string() +
-              " : " +
-              flat_val_type_to_moonbit(ft),
+              name + "_p" + i.to_string() + " : " + flat_val_type_to_moonbit(ft),
             )
           }
           params
@@ -449,10 +445,7 @@ fn Generator::generate_param_lift(
               Some(payload_ty) => {
                 sb.write_string("(")
                 let (expr, _) = self.generate_flat_lift_expr(
-                  payload_ty,
-                  name,
-                  0,
-                  joined,
+                  payload_ty, name, 0, joined,
                 )
                 sb.write_string(expr)
                 sb.write_string(")")
@@ -479,6 +472,7 @@ fn Generator::generate_field_lift(
   base_ptr : String,
   offset : Int,
   ty : @resolve.Type,
+  depth? : Int = 0,
 ) -> String {
   let offset_str = if offset == 0 {
     base_ptr
@@ -527,6 +521,7 @@ fn Generator::generate_field_lift(
                 offset_str,
                 field_offset,
                 field.field_type,
+                depth~,
               ),
             )
           }
@@ -537,10 +532,11 @@ fn Generator::generate_field_lift(
         }
         Variant(cases) => {
           let type_name = self.resolve_type_name(id)
+          let payload_off = self.variant_payload_offset(cases)
           let sb = StringBuilder::new()
-          sb.write_string("(match @cabi.cabi_read_i32(")
-          sb.write_string(offset_str)
-          sb.write_string(") {\n")
+          sb.write_string("(match ")
+          sb.write_string(disc_read_code(offset_str, cases.length()))
+          sb.write_string(" {\n")
           for i, case in cases {
             sb.write_string("          ")
             sb.write_string(i.to_string())
@@ -550,7 +546,12 @@ fn Generator::generate_field_lift(
               Some(payload_ty) => {
                 sb.write_string("(")
                 sb.write_string(
-                  self.generate_field_lift(offset_str + " + 4", 0, payload_ty),
+                  self.generate_field_lift(
+                    offset_str + " + " + payload_off.to_string(),
+                    0,
+                    payload_ty,
+                    depth~,
+                  ),
                 )
                 sb.write_string(")")
               }
@@ -558,7 +559,9 @@ fn Generator::generate_field_lift(
             }
             sb.write_string("\n")
           }
-          sb.write_string("          _ => abort(\"invalid variant discriminant\")\n")
+          sb.write_string(
+            "          _ => abort(\"invalid variant discriminant\")\n",
+          )
           sb.write_string("        } : ")
           sb.write_string(type_name)
           sb.write_string(")")
@@ -567,36 +570,50 @@ fn Generator::generate_field_lift(
         List(inner) => {
           let elem_size = self.type_size(inner)
           let list_type = self.type_name(Id(id))
+          let d = depth.to_string()
+          let lp = "lp" + d
+          let ll = "ll" + d
+          let la = "la" + d
+          let li = "li" + d
           let sb = StringBuilder::new()
-          sb.write_string("({ let list_ptr = @cabi.cabi_read_i32(")
+          sb.write_string("({ let " + lp + " = @cabi.cabi_read_i32(")
           sb.write_string(offset_str)
-          sb.write_string("); let list_len = @cabi.cabi_read_i32(")
+          sb.write_string("); let " + ll + " = @cabi.cabi_read_i32(")
           sb.write_string(offset_str)
-          sb.write_string(" + 4); let arr : ")
+          sb.write_string(" + 4); let " + la + " : ")
           sb.write_string(list_type)
-          sb.write_string(" = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(")
+          sb.write_string(
+            " = Array::new(capacity=" + ll + "); for " + li + " = 0; " + li + " < " + ll + "; " + li + " = " + li + " + 1 { " + la + ".push(",
+          )
           sb.write_string(
             self.generate_list_elem_lift(
               inner,
-              "list_ptr + i * " + elem_size.to_string(),
+              lp + " + " + li + " * " + elem_size.to_string(),
+              depth=depth + 1,
             ),
           )
-          sb.write_string(") }; arr })")
+          sb.write_string(") }; " + la + " })")
           sb.to_string()
         }
         Enum(_) => {
           let type_name = self.resolve_type_name(id)
-          type_name +
-          "::from_ordinal(@cabi.cabi_read_i32(" +
-          offset_str +
-          "))"
+          type_name + "::from_ordinal(@cabi.cabi_read_i32(" + offset_str + "))"
         }
         Option(inner) => {
+          let inner_align = self.type_align(inner)
+          let payload_off = align_to(1, inner_align)
           let sb = StringBuilder::new()
-          sb.write_string("(if @cabi.cabi_read_i32(")
-          sb.write_string(offset_str)
-          sb.write_string(") != 0 { Some(")
-          sb.write_string(self.generate_field_lift(offset_str + " + 4", 0, inner))
+          sb.write_string("(if ")
+          sb.write_string(disc_read_code(offset_str, 2))
+          sb.write_string(" != 0 { Some(")
+          sb.write_string(
+            self.generate_field_lift(
+              offset_str + " + " + payload_off.to_string(),
+              0,
+              inner,
+              depth~,
+            ),
+          )
           sb.write_string(") } else { None })")
           sb.to_string()
         }
@@ -713,56 +730,79 @@ fn Generator::generate_result_lower_indirect(
               sb.write_string("  retptr\n")
             }
             Option(inner) => {
-              let inner_size = self.type_size(inner)
-              sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
-              sb.write_string(inner_size.to_string())
+              let opt_size = self.type_size(Id(id))
+              let opt_align = self.type_align(Id(id))
+              let inner_align = self.type_align(inner)
+              let payload_off = align_to(1, inner_align)
+              sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, ")
+              sb.write_string(opt_align.to_string())
+              sb.write_string(", ")
+              sb.write_string(opt_size.to_string())
               sb.write_string(")\n")
               sb.write_string("  match result {\n")
               sb.write_string("    Some(val) => {\n")
-              sb.write_string(
-                "      @cabi.cabi_write_i32(retptr, 1) // discriminant: Some\n",
+              sb.write_string("      ")
+              sb.write_string(disc_write_code("retptr", "1", 2))
+              sb.write_string(" // discriminant: Some\n")
+              self.generate_field_lower(
+                sb,
+                "retptr + " + payload_off.to_string(),
+                inner,
+                "val",
               )
-              self.generate_field_lower(sb, "retptr + 4", inner, "val")
               sb.write_string("    }\n")
-              sb.write_string(
-                "    None => @cabi.cabi_write_i32(retptr, 0) // discriminant: None\n",
-              )
+              sb.write_string("    None => ")
+              sb.write_string(disc_write_code("retptr", "0", 2))
+              sb.write_string(" // discriminant: None\n")
               sb.write_string("  }\n")
               sb.write_string("  retptr\n")
             }
             Result(ok=ok_ty, err=err_ty) => {
-              let ok_size = match ok_ty {
-                Some(t) => self.type_size(t)
-                None => 0
+              let result_size = self.type_size(Id(id))
+              let result_align = self.type_align(Id(id))
+              let ok_align = match ok_ty {
+                Some(t) => self.type_align(t)
+                None => 1
               }
-              let err_size = match err_ty {
-                Some(t) => self.type_size(t)
-                None => 0
+              let err_align = match err_ty {
+                Some(t) => self.type_align(t)
+                None => 1
               }
-              let payload_size = if ok_size > err_size {
-                ok_size
-              } else {
-                err_size
-              }
-              sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
-              sb.write_string(payload_size.to_string())
+              let mca = if ok_align > err_align { ok_align } else { err_align }
+              let payload_off = align_to(1, mca)
+              sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, ")
+              sb.write_string(result_align.to_string())
+              sb.write_string(", ")
+              sb.write_string(result_size.to_string())
               sb.write_string(")\n")
               sb.write_string("  match result {\n")
               sb.write_string("    Ok(val) => {\n")
-              sb.write_string(
-                "      @cabi.cabi_write_i32(retptr, 0) // discriminant: Ok\n",
-              )
+              sb.write_string("      ")
+              sb.write_string(disc_write_code("retptr", "0", 2))
+              sb.write_string(" // discriminant: Ok\n")
               match ok_ty {
-                Some(t) => self.generate_field_lower(sb, "retptr + 4", t, "val")
+                Some(t) =>
+                  self.generate_field_lower(
+                    sb,
+                    "retptr + " + payload_off.to_string(),
+                    t,
+                    "val",
+                  )
                 None => ()
               }
               sb.write_string("    }\n")
               sb.write_string("    Err(e) => {\n")
-              sb.write_string(
-                "      @cabi.cabi_write_i32(retptr, 1) // discriminant: Err\n",
-              )
+              sb.write_string("      ")
+              sb.write_string(disc_write_code("retptr", "1", 2))
+              sb.write_string(" // discriminant: Err\n")
               match err_ty {
-                Some(t) => self.generate_field_lower(sb, "retptr + 4", t, "e")
+                Some(t) =>
+                  self.generate_field_lower(
+                    sb,
+                    "retptr + " + payload_off.to_string(),
+                    t,
+                    "e",
+                  )
                 None => ()
               }
               sb.write_string("    }\n")
@@ -791,6 +831,7 @@ fn Generator::generate_result_lower_indirect(
             Variant(cases) => {
               let variant_size = self.type_size(Id(id))
               let variant_align = self.type_align(Id(id))
+              let payload_off = self.variant_payload_offset(cases)
               sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, ")
               sb.write_string(variant_align.to_string())
               sb.write_string(", ")
@@ -804,16 +845,25 @@ fn Generator::generate_result_lower_indirect(
                 match case.case_type {
                   Some(payload_ty) => {
                     sb.write_string("(val) => {\n")
-                    sb.write_string("      @cabi.cabi_write_i32(retptr, ")
-                    sb.write_string(i.to_string())
-                    sb.write_string(")\n")
-                    self.generate_field_lower(sb, "retptr + 4", payload_ty, "val")
+                    sb.write_string("      ")
+                    sb.write_string(
+                      disc_write_code("retptr", i.to_string(), cases.length()),
+                    )
+                    sb.write_string("\n")
+                    self.generate_field_lower(
+                      sb,
+                      "retptr + " + payload_off.to_string(),
+                      payload_ty,
+                      "val",
+                    )
                     sb.write_string("    }\n")
                   }
                   None => {
-                    sb.write_string(" => @cabi.cabi_write_i32(retptr, ")
-                    sb.write_string(i.to_string())
-                    sb.write_string(")\n")
+                    sb.write_string(" => ")
+                    sb.write_string(
+                      disc_write_code("retptr", i.to_string(), cases.length()),
+                    )
+                    sb.write_string("\n")
                   }
                 }
               }

@@ -32,22 +32,60 @@ fn Generator::type_size(self : Generator, ty : @resolve.Type) -> Int {
           size
         }
         Variant(cases) => {
-          // discriminant (4 bytes) + max payload size
+          let ds = disc_size(cases.length())
           let mut max_payload = 0
+          let mut max_case_align = 1
           for case in cases {
             match case.case_type {
               Some(t) => {
-                let payload_size = self.type_size(t)
-                if payload_size > max_payload {
-                  max_payload = payload_size
+                let s = self.type_size(t)
+                if s > max_payload {
+                  max_payload = s
+                }
+                let a = self.type_align(t)
+                if a > max_case_align {
+                  max_case_align = a
                 }
               }
               None => ()
             }
           }
-          4 + max_payload
+          let payload_off = align_to(ds, max_case_align)
+          let da = disc_size(cases.length())
+          let va = if da > max_case_align { da } else { max_case_align }
+          align_to(payload_off + max_payload, va)
         }
-        List(_) | Option(_) | Result(ok=_, err=_) => 8
+        List(_) => 8
+        Option(inner) => {
+          let inner_size = self.type_size(inner)
+          let inner_align = self.type_align(inner)
+          let payload_off = align_to(1, inner_align)
+          let va = if inner_align > 1 { inner_align } else { 1 }
+          align_to(payload_off + inner_size, va)
+        }
+        Result(ok~, err~) => {
+          let ok_size = match ok {
+            Some(t) => self.type_size(t)
+            None => 0
+          }
+          let err_size = match err {
+            Some(t) => self.type_size(t)
+            None => 0
+          }
+          let ok_align = match ok {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let err_align = match err {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let max_payload = if ok_size > err_size { ok_size } else { err_size }
+          let mca = if ok_align > err_align { ok_align } else { err_align }
+          let payload_off = align_to(1, mca)
+          let va = if mca > 1 { mca } else { 1 }
+          align_to(payload_off + max_payload, va)
+        }
         Flags(flags) =>
           // Flags are stored as u32 bitmask (up to 32 flags)
           if flags.length() <= 8 {
@@ -97,21 +135,50 @@ fn Generator::type_align(self : Generator, ty : @resolve.Type) -> Int {
           max_align
         }
         Variant(cases) => {
-          let mut max_align = 4 // discriminant
+          let da = disc_size(cases.length())
+          let mut max_case_align = 1
           for case in cases {
             match case.case_type {
               Some(t) => {
-                let align = self.type_align(t)
-                if align > max_align {
-                  max_align = align
+                let a = self.type_align(t)
+                if a > max_case_align {
+                  max_case_align = a
                 }
               }
               None => ()
             }
           }
-          max_align
+          if da > max_case_align {
+            da
+          } else {
+            max_case_align
+          }
         }
-        List(_) | Option(_) | Result(ok=_, err=_) => 4
+        List(_) => 4
+        Option(inner) => {
+          let inner_align = self.type_align(inner)
+          if inner_align > 1 {
+            inner_align
+          } else {
+            1
+          }
+        }
+        Result(ok~, err~) => {
+          let ok_align = match ok {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let err_align = match err {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let mca = if ok_align > err_align { ok_align } else { err_align }
+          if mca > 1 {
+            mca
+          } else {
+            1
+          }
+        }
         Flags(flags) =>
           if flags.length() <= 8 {
             1
@@ -127,11 +194,80 @@ fn Generator::type_align(self : Generator, ty : @resolve.Type) -> Int {
 }
 
 ///|
+/// Align a value up to the given alignment
+fn align_to(x : Int, align : Int) -> Int {
+  (x + align - 1) & -align
+}
+
+///|
+/// Discriminant size in bytes based on case count
+fn disc_size(num_cases : Int) -> Int {
+  if num_cases <= 256 {
+    1
+  } else if num_cases <= 65536 {
+    2
+  } else {
+    4
+  }
+}
+
+///|
+/// Generate discriminant write expression
+fn disc_write_code(
+  ptr_expr : String,
+  val_expr : String,
+  num_cases : Int,
+) -> String {
+  let ds = disc_size(num_cases)
+  if ds == 1 {
+    "@cabi.cabi_write_u8(" + ptr_expr + ", (" + val_expr + ").to_byte())"
+  } else {
+    "@cabi.cabi_write_i32(" + ptr_expr + ", " + val_expr + ")"
+  }
+}
+
+///|
+/// Generate discriminant read expression (returns Int)
+fn disc_read_code(ptr_expr : String, num_cases : Int) -> String {
+  let ds = disc_size(num_cases)
+  if ds == 1 {
+    "@cabi.cabi_read_u8(" + ptr_expr + ").to_int()"
+  } else if ds == 2 {
+    "@cabi.cabi_read_i32(" + ptr_expr + ") & 0xffff"
+  } else {
+    "@cabi.cabi_read_i32(" + ptr_expr + ")"
+  }
+}
+
+///|
+/// Compute payload offset for a variant type
+fn Generator::variant_payload_offset(
+  self : Generator,
+  cases : Array[@resolve.VariantCase],
+) -> Int {
+  let ds = disc_size(cases.length())
+  let mut max_case_align = 1
+  for case in cases {
+    match case.case_type {
+      Some(t) => {
+        let a = self.type_align(t)
+        if a > max_case_align {
+          max_case_align = a
+        }
+      }
+      None => ()
+    }
+  }
+  align_to(ds, if max_case_align > 1 { max_case_align } else { 1 })
+}
+
+///|
 /// Generate code to lift a list element
 fn Generator::generate_list_elem_lift(
   self : Generator,
   elem_ty : @resolve.Type,
   ptr_var : String,
+  depth? : Int = 0,
 ) -> String {
   match elem_ty {
     Bool => "@cabi.cabi_read_u8(" + ptr_var + ") != b'\\x00'"
@@ -177,6 +313,7 @@ fn Generator::generate_list_elem_lift(
               self.generate_list_elem_lift(
                 field.field_type,
                 ptr_var + " + " + field_offset.to_string(),
+                depth~,
               ),
             )
           }
@@ -202,6 +339,7 @@ fn Generator::generate_list_elem_lift(
               self.generate_list_elem_lift(
                 t,
                 ptr_var + " + " + elem_offset.to_string(),
+                depth~,
               ),
             )
           }
@@ -210,10 +348,11 @@ fn Generator::generate_list_elem_lift(
         }
         Variant(cases) => {
           let type_name = self.resolve_type_name(id)
+          let payload_off = self.variant_payload_offset(cases)
           let sb = StringBuilder::new()
-          sb.write_string("(match @cabi.cabi_read_i32(")
-          sb.write_string(ptr_var)
-          sb.write_string(") {\n")
+          sb.write_string("(match ")
+          sb.write_string(disc_read_code(ptr_var, cases.length()))
+          sb.write_string(" {\n")
           for i, case in cases {
             sb.write_string("        ")
             sb.write_string(i.to_string())
@@ -225,7 +364,8 @@ fn Generator::generate_list_elem_lift(
                 sb.write_string(
                   self.generate_list_elem_lift(
                     payload_ty,
-                    ptr_var + " + 4",
+                    ptr_var + " + " + payload_off.to_string(),
+                    depth~,
                   ),
                 )
                 sb.write_string(")")
@@ -234,7 +374,9 @@ fn Generator::generate_list_elem_lift(
             }
             sb.write_string("\n")
           }
-          sb.write_string("        _ => abort(\"invalid variant discriminant\")\n")
+          sb.write_string(
+            "        _ => abort(\"invalid variant discriminant\")\n",
+          )
           sb.write_string("      } : ")
           sb.write_string(type_name)
           sb.write_string(")")
@@ -247,30 +389,44 @@ fn Generator::generate_list_elem_lift(
         List(inner) => {
           let elem_size = self.type_size(inner)
           let list_type = self.type_name(Id(id))
+          let d = depth.to_string()
+          let lp = "lp" + d
+          let ll = "ll" + d
+          let la = "la" + d
+          let li = "li" + d
           let sb = StringBuilder::new()
-          sb.write_string("({ let list_ptr = @cabi.cabi_read_i32(")
+          sb.write_string("({ let " + lp + " = @cabi.cabi_read_i32(")
           sb.write_string(ptr_var)
-          sb.write_string("); let list_len = @cabi.cabi_read_i32(")
+          sb.write_string("); let " + ll + " = @cabi.cabi_read_i32(")
           sb.write_string(ptr_var)
-          sb.write_string(" + 4); let arr : ")
+          sb.write_string(" + 4); let " + la + " : ")
           sb.write_string(list_type)
-          sb.write_string(" = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(")
+          sb.write_string(
+            " = Array::new(capacity=" + ll + "); for " + li + " = 0; " + li + " < " + ll + "; " + li + " = " + li + " + 1 { " + la + ".push(",
+          )
           sb.write_string(
             self.generate_list_elem_lift(
               inner,
-              "list_ptr + i * " + elem_size.to_string(),
+              lp + " + " + li + " * " + elem_size.to_string(),
+              depth=depth + 1,
             ),
           )
-          sb.write_string(") }; arr })")
+          sb.write_string(") }; " + la + " })")
           sb.to_string()
         }
         Option(inner) => {
+          let inner_align = self.type_align(inner)
+          let payload_off = align_to(1, inner_align)
           let sb = StringBuilder::new()
-          sb.write_string("(if @cabi.cabi_read_i32(")
-          sb.write_string(ptr_var)
-          sb.write_string(") != 0 { Some(")
+          sb.write_string("(if ")
+          sb.write_string(disc_read_code(ptr_var, 2))
+          sb.write_string(" != 0 { Some(")
           sb.write_string(
-            self.generate_list_elem_lift(inner, ptr_var + " + 4"),
+            self.generate_list_elem_lift(
+              inner,
+              ptr_var + " + " + payload_off.to_string(),
+              depth~,
+            ),
           )
           sb.write_string(") } else { None })")
           sb.to_string()
@@ -439,6 +595,7 @@ fn Generator::generate_value_lower(
         }
         Variant(cases) => {
           // Lower variant: write discriminant + payload
+          let payload_off = self.variant_payload_offset(cases)
           sb.write_string(indent)
           sb.write_string("match ")
           sb.write_string(val_expr)
@@ -452,14 +609,14 @@ fn Generator::generate_value_lower(
               Some(payload_ty) => {
                 sb.write_string("(payload) => {\n")
                 sb.write_string(indent)
-                sb.write_string("    @cabi.cabi_write_i32(")
-                sb.write_string(ptr_expr)
-                sb.write_string(", ")
-                sb.write_string(i.to_string())
-                sb.write_string(")\n")
+                sb.write_string("    ")
+                sb.write_string(
+                  disc_write_code(ptr_expr, i.to_string(), cases.length()),
+                )
+                sb.write_string("\n")
                 self.generate_value_lower(
                   sb,
-                  ptr_expr + " + 4",
+                  ptr_expr + " + " + payload_off.to_string(),
                   payload_ty,
                   "payload",
                   indent + "    ",
@@ -468,11 +625,11 @@ fn Generator::generate_value_lower(
                 sb.write_string("  }\n")
               }
               None => {
-                sb.write_string(" => @cabi.cabi_write_i32(")
-                sb.write_string(ptr_expr)
-                sb.write_string(", ")
-                sb.write_string(i.to_string())
-                sb.write_string(")\n")
+                sb.write_string(" => ")
+                sb.write_string(
+                  disc_write_code(ptr_expr, i.to_string(), cases.length()),
+                )
+                sb.write_string("\n")
               }
             }
           }
@@ -490,6 +647,8 @@ fn Generator::generate_value_lower(
         }
         Option(inner) => {
           // Lower option: discriminant + payload
+          let inner_align = self.type_align(inner)
+          let payload_off = align_to(1, inner_align)
           sb.write_string(indent)
           sb.write_string("match ")
           sb.write_string(val_expr)
@@ -497,12 +656,12 @@ fn Generator::generate_value_lower(
           sb.write_string(indent)
           sb.write_string("  Some(payload) => {\n")
           sb.write_string(indent)
-          sb.write_string("    @cabi.cabi_write_i32(")
-          sb.write_string(ptr_expr)
-          sb.write_string(", 1)\n")
+          sb.write_string("    ")
+          sb.write_string(disc_write_code(ptr_expr, "1", 2))
+          sb.write_string("\n")
           self.generate_value_lower(
             sb,
-            ptr_expr + " + 4",
+            ptr_expr + " + " + payload_off.to_string(),
             inner,
             "payload",
             indent + "    ",
@@ -510,9 +669,9 @@ fn Generator::generate_value_lower(
           sb.write_string(indent)
           sb.write_string("  }\n")
           sb.write_string(indent)
-          sb.write_string("  None => @cabi.cabi_write_i32(")
-          sb.write_string(ptr_expr)
-          sb.write_string(", 0)\n")
+          sb.write_string("  None => ")
+          sb.write_string(disc_write_code(ptr_expr, "0", 2))
+          sb.write_string("\n")
           sb.write_string(indent)
           sb.write_string("}\n")
         }
@@ -721,7 +880,8 @@ fn Generator::result_to_ffi(
   }
 }
 
-///| Flat value type for canonical ABI param/result flattening
+///|
+/// Flat value type for canonical ABI param/result flattening
 enum FlatValType {
   FlatI32
   FlatI64
@@ -729,7 +889,8 @@ enum FlatValType {
   FlatF64
 } derive(Eq)
 
-///| Join two flat types per canonical ABI rules
+///|
+/// Join two flat types per canonical ABI rules
 fn join_flat_type(a : FlatValType, b : FlatValType) -> FlatValType {
   if a == b {
     return a
@@ -740,7 +901,8 @@ fn join_flat_type(a : FlatValType, b : FlatValType) -> FlatValType {
   }
 }
 
-///| Convert flat type to MoonBit type string
+///|
+/// Convert flat type to MoonBit type string
 fn flat_val_type_to_moonbit(ft : FlatValType) -> String {
   match ft {
     FlatI32 => "Int"
@@ -750,7 +912,8 @@ fn flat_val_type_to_moonbit(ft : FlatValType) -> String {
   }
 }
 
-///| Get flat type representation for a type (canonical ABI)
+///|
+/// Get flat type representation for a type (canonical ABI)
 fn Generator::type_flat_types(
   self : Generator,
   ty : @resolve.Type,
@@ -841,7 +1004,8 @@ fn Generator::type_flat_types(
   }
 }
 
-///| Get joined payload flat types for a variant's cases
+///|
+/// Get joined payload flat types for a variant's cases
 fn Generator::variant_joined_payload(
   self : Generator,
   cases : Array[@resolve.VariantCase],
@@ -865,7 +1029,8 @@ fn Generator::variant_joined_payload(
   payload
 }
 
-///| Generate coercion expression from joined flat type to original flat type
+///|
+/// Generate coercion expression from joined flat type to original flat type
 fn coerce_flat_expr(
   expr : String,
   have : FlatValType,
@@ -879,13 +1044,13 @@ fn coerce_flat_expr(
     (FlatI64, FlatF64) => expr + ".reinterpret_as_double()"
     (FlatI64, FlatF32) =>
       "Float::from_bits(" + expr + ".to_int().reinterpret_as_uint())"
-    (FlatI32, FlatF32) =>
-      "Float::from_bits(" + expr + ".reinterpret_as_uint())"
+    (FlatI32, FlatF32) => "Float::from_bits(" + expr + ".reinterpret_as_uint())"
     _ => expr
   }
 }
 
-///| Lift a type from flat params (for variant case payloads)
+///|
+/// Lift a type from flat params (for variant case payloads)
 fn Generator::generate_flat_lift_expr(
   self : Generator,
   ty : @resolve.Type,
@@ -988,22 +1153,23 @@ fn Generator::generate_flat_lift_expr(
           let ptr_expr = coerce_flat_expr(p0, joined[pos], FlatI32)
           let len_expr = coerce_flat_expr(p1, joined[pos + 1], FlatI32)
           let sb = StringBuilder::new()
-          sb.write_string("({ let list_ptr = ")
+          sb.write_string("({ let lp0 = ")
           sb.write_string(ptr_expr)
-          sb.write_string("; let list_len = ")
+          sb.write_string("; let ll0 = ")
           sb.write_string(len_expr)
-          sb.write_string("; let arr : ")
+          sb.write_string("; let la0 : ")
           sb.write_string(list_type)
           sb.write_string(
-            " = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(",
+            " = Array::new(capacity=ll0); for li0 = 0; li0 < ll0; li0 = li0 + 1 { la0.push(",
           )
           sb.write_string(
             self.generate_list_elem_lift(
               elem_ty,
-              "list_ptr + i * " + elem_size.to_string(),
+              "lp0 + li0 * " + elem_size.to_string(),
+              depth=1,
             ),
           )
-          sb.write_string(") }; arr })")
+          sb.write_string(") }; la0 })")
           (sb.to_string(), 2)
         }
         Enum(_) => {
