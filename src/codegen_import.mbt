@@ -397,30 +397,43 @@ fn Generator::generate_import_wrapper_body(
             ffi_args.push("p" + i.to_string() + "_ptr")
           }
           Option(inner) => {
-            let inner_size = self.type_size(inner)
+            // Option = 2-case variant: disc_size=1
+            let payload_align = self.type_align(inner)
+            let payload_offset = align_to(
+              1,
+              if payload_align > 1 { payload_align } else { 1 },
+            )
+            let total_size = payload_offset + self.type_size(inner)
+            let alloc_align = self.type_align(Id(id))
             sb.write_string("  let p")
             sb.write_string(i.to_string())
-            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
-            sb.write_string(inner_size.to_string())
+            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, ")
+            sb.write_string(alloc_align.to_string())
+            sb.write_string(", ")
+            sb.write_string(total_size.to_string())
             sb.write_string(")\n")
             sb.write_string("  match ")
             sb.write_string(safe_name)
             sb.write_string(" {\n")
             sb.write_string("    Some(val) => {\n")
-            sb.write_string("      @cabi.cabi_write_i32(p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr, 1)\n")
+            sb.write_string("      ")
+            sb.write_string(
+              disc_write_code("p" + i.to_string() + "_ptr", "1", 2),
+            )
+            sb.write_string("\n")
             self.generate_value_lower(
               sb,
-              "p" + i.to_string() + "_ptr + 4",
+              "p" + i.to_string() + "_ptr + " + payload_offset.to_string(),
               inner,
               "val",
               "      ",
             )
             sb.write_string("    }\n")
-            sb.write_string("    None => @cabi.cabi_write_i32(p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr, 0)\n")
+            sb.write_string("    None => ")
+            sb.write_string(
+              disc_write_code("p" + i.to_string() + "_ptr", "0", 2),
+            )
+            sb.write_string("\n")
             sb.write_string("  }\n")
             ffi_args.push("p" + i.to_string() + "_ptr")
           }
@@ -433,55 +446,64 @@ fn Generator::generate_import_wrapper_body(
               Some(t) => self.type_size(t)
               None => 0
             }
-            let payload_size = if ok_size > err_size {
-              ok_size
-            } else {
-              err_size
+            let ok_align = match ok_ty {
+              Some(t) => self.type_align(t)
+              None => 1
             }
-            sb.write_string("  let p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, 4 + ")
-            sb.write_string(payload_size.to_string())
+            let err_align = match err_ty {
+              Some(t) => self.type_align(t)
+              None => 1
+            }
+            let max_payload_align = if ok_align > err_align {
+              ok_align
+            } else {
+              err_align
+            }
+            let payload_size = if ok_size > err_size { ok_size } else { err_size }
+            // Result = 2-case variant: disc_size=1
+            let payload_offset = align_to(
+              1,
+              if max_payload_align > 1 { max_payload_align } else { 1 },
+            )
+            let total_size = payload_offset + payload_size
+            let alloc_align = self.type_align(Id(id))
+            let ptr_name = "p" + i.to_string() + "_ptr"
+            let po_str = ptr_name + " + " + payload_offset.to_string()
+            sb.write_string("  let ")
+            sb.write_string(ptr_name)
+            sb.write_string(" = @cabi.cabi_realloc(0, 0, ")
+            sb.write_string(alloc_align.to_string())
+            sb.write_string(", ")
+            sb.write_string(total_size.to_string())
             sb.write_string(")\n")
             sb.write_string("  match ")
             sb.write_string(safe_name)
             sb.write_string(" {\n")
             sb.write_string("    Ok(val) => {\n")
-            sb.write_string("      @cabi.cabi_write_i32(p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr, 0)\n")
+            sb.write_string("      ")
+            sb.write_string(disc_write_code(ptr_name, "0", 2))
+            sb.write_string("\n")
             match ok_ty {
               Some(t) =>
-                self.generate_value_lower(
-                  sb,
-                  "p" + i.to_string() + "_ptr + 4",
-                  t,
-                  "val",
-                  "      ",
-                )
+                self.generate_value_lower(sb, po_str, t, "val", "      ")
               None => ()
             }
             sb.write_string("    }\n")
             sb.write_string("    Err(e) => {\n")
-            sb.write_string("      @cabi.cabi_write_i32(p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr, 1)\n")
+            sb.write_string("      ")
+            sb.write_string(disc_write_code(ptr_name, "1", 2))
+            sb.write_string("\n")
             match err_ty {
               Some(t) =>
-                self.generate_value_lower(
-                  sb,
-                  "p" + i.to_string() + "_ptr + 4",
-                  t,
-                  "e",
-                  "      ",
-                )
+                self.generate_value_lower(sb, po_str, t, "e", "      ")
               None => ()
             }
             sb.write_string("    }\n")
             sb.write_string("  }\n")
-            ffi_args.push("p" + i.to_string() + "_ptr")
+            ffi_args.push(ptr_name)
           }
           Variant(cases) => {
+            let payload_offset = self.variant_payload_offset(cases)
             let mut max_payload = 0
             for case in cases {
               match case.case_type {
@@ -494,10 +516,15 @@ fn Generator::generate_import_wrapper_body(
                 None => ()
               }
             }
-            let total_size = 4 + max_payload
-            sb.write_string("  let p")
-            sb.write_string(i.to_string())
-            sb.write_string("_ptr = @cabi.cabi_realloc(0, 0, 4, ")
+            let total_size = payload_offset + max_payload
+            let alloc_align = self.type_align(Id(id))
+            let ptr_name = "p" + i.to_string() + "_ptr"
+            let po_str = ptr_name + " + " + payload_offset.to_string()
+            sb.write_string("  let ")
+            sb.write_string(ptr_name)
+            sb.write_string(" = @cabi.cabi_realloc(0, 0, ")
+            sb.write_string(alloc_align.to_string())
+            sb.write_string(", ")
             sb.write_string(total_size.to_string())
             sb.write_string(")\n")
             sb.write_string("  match ")
@@ -511,26 +538,24 @@ fn Generator::generate_import_wrapper_body(
                 None => ()
               }
               sb.write_string(" => {\n")
-              sb.write_string("      @cabi.cabi_write_i32(p")
-              sb.write_string(i.to_string())
-              sb.write_string("_ptr, ")
-              sb.write_string(case_i.to_string())
-              sb.write_string(")\n")
+              sb.write_string("      ")
+              sb.write_string(
+                disc_write_code(
+                  ptr_name,
+                  case_i.to_string(),
+                  cases.length(),
+                ),
+              )
+              sb.write_string("\n")
               match case.case_type {
                 Some(t) =>
-                  self.generate_value_lower(
-                    sb,
-                    "p" + i.to_string() + "_ptr + 4",
-                    t,
-                    "val",
-                    "      ",
-                  )
+                  self.generate_value_lower(sb, po_str, t, "val", "      ")
                 None => ()
               }
               sb.write_string("    }\n")
             }
             sb.write_string("  }\n")
-            ffi_args.push("p" + i.to_string() + "_ptr")
+            ffi_args.push(ptr_name)
           }
           Flags(_) => ffi_args.push(safe_name + ".to_bits()")
           Enum(_) => ffi_args.push(safe_name + ".ordinal()")
@@ -609,7 +634,12 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
       match typedef.kind {
         List(_) => 8
         Record(fields) => self.compute_record_size(fields)
-        Option(inner) => 4 + self.type_size(inner)
+        Option(inner) => {
+          // Option is variant with 2 cases: disc_size=1
+          let payload_align = self.type_align(inner)
+          let payload_offset = align_to(1, if payload_align > 1 { payload_align } else { 1 })
+          payload_offset + self.type_size(inner)
+        }
         Result(ok=ok_ty, err=err_ty) => {
           let ok_size = match ok_ty {
             Some(t) => self.type_size(t)
@@ -619,11 +649,30 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
             Some(t) => self.type_size(t)
             None => 0
           }
+          let ok_align = match ok_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let err_align = match err_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let max_payload_align = if ok_align > err_align {
+            ok_align
+          } else {
+            err_align
+          }
           let payload_size = if ok_size > err_size { ok_size } else { err_size }
-          4 + payload_size
+          // Result is variant with 2 cases: disc_size=1
+          let payload_offset = align_to(
+            1,
+            if max_payload_align > 1 { max_payload_align } else { 1 },
+          )
+          payload_offset + payload_size
         }
         Variant(cases) => {
           let mut max_payload = 0
+          let mut max_payload_align = 1
           for case in cases {
             match case.case_type {
               Some(t) => {
@@ -631,11 +680,20 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
                 if size > max_payload {
                   max_payload = size
                 }
+                let a = self.type_align(t)
+                if a > max_payload_align {
+                  max_payload_align = a
+                }
               }
               None => ()
             }
           }
-          4 + max_payload
+          let ds = disc_size(cases.length())
+          let payload_offset = align_to(
+            ds,
+            if max_payload_align > 1 { max_payload_align } else { 1 },
+          )
+          payload_offset + max_payload
         }
         Tuple(types) => {
           let mut size = 0
@@ -734,20 +792,55 @@ fn Generator::generate_import_retptr_result(
           sb.write_string("\n")
         }
         Option(inner) => {
-          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          // Option = 2-case variant: disc_size=1
+          let payload_align = self.type_align(inner)
+          let payload_offset = align_to(
+            1,
+            if payload_align > 1 { payload_align } else { 1 },
+          )
+          sb.write_string("  match ")
+          sb.write_string(disc_read_code("retptr", 2))
+          sb.write_string(" {\n")
           sb.write_string("    0 => None\n")
           sb.write_string("    _ => Some(")
-          sb.write_string(self.generate_field_lift("retptr + 4", 0, inner))
+          sb.write_string(
+            self.generate_field_lift(
+              "retptr + " + payload_offset.to_string(),
+              0,
+              inner,
+            ),
+          )
           sb.write_string(")\n")
           sb.write_string("  }\n")
         }
         Result(ok=ok_ty, err=err_ty) => {
-          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          // Result = 2-case variant: disc_size=1
+          let ok_align = match ok_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let err_align = match err_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let max_payload_align = if ok_align > err_align {
+            ok_align
+          } else {
+            err_align
+          }
+          let payload_offset = align_to(
+            1,
+            if max_payload_align > 1 { max_payload_align } else { 1 },
+          )
+          let po_str = "retptr + " + payload_offset.to_string()
+          sb.write_string("  match ")
+          sb.write_string(disc_read_code("retptr", 2))
+          sb.write_string(" {\n")
           sb.write_string("    0 => ")
           match ok_ty {
             Some(t) => {
               sb.write_string("Ok(")
-              sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+              sb.write_string(self.generate_field_lift(po_str, 0, t))
               sb.write_string(")\n")
             }
             None => sb.write_string("Ok(())\n")
@@ -756,7 +849,7 @@ fn Generator::generate_import_retptr_result(
           match err_ty {
             Some(t) => {
               sb.write_string("Err(")
-              sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+              sb.write_string(self.generate_field_lift(po_str, 0, t))
               sb.write_string(")\n")
             }
             None => sb.write_string("Err(())\n")
@@ -764,7 +857,11 @@ fn Generator::generate_import_retptr_result(
           sb.write_string("  }\n")
         }
         Variant(cases) => {
-          sb.write_string("  match @cabi.cabi_read_i32(retptr) {\n")
+          let payload_offset = self.variant_payload_offset(cases)
+          let po_str = "retptr + " + payload_offset.to_string()
+          sb.write_string("  match ")
+          sb.write_string(disc_read_code("retptr", cases.length()))
+          sb.write_string(" {\n")
           for case_i, case in cases {
             sb.write_string("    ")
             sb.write_string(case_i.to_string())
@@ -773,7 +870,7 @@ fn Generator::generate_import_retptr_result(
             match case.case_type {
               Some(t) => {
                 sb.write_string("(")
-                sb.write_string(self.generate_field_lift("retptr + 4", 0, t))
+                sb.write_string(self.generate_field_lift(po_str, 0, t))
                 sb.write_string(")\n")
               }
               None => sb.write_string("\n")
