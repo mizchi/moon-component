@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hello-wite/gen/interface/local/hello-wite/greet"
+
+// Values
+pub fn get_exports() -> &Exports
+
+pub fn register(&Exports) -> Unit
+
+pub fn wasmExportGreet(Int, Int) -> Int
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+pub(open) trait Exports {
+  greet(Self, String) -> String
+}
+
