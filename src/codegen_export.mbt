@@ -362,7 +362,7 @@ fn Generator::generate_param_lift(
         }
         List(inner) => {
           let elem_size = self.type_size(inner)
-          let list_type = self.resolve_type_name(id)
+          let list_type = self.type_name(ty)
           let sb = StringBuilder::new()
           sb.write_string("let ")
           sb.write_string(name)

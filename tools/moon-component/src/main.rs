@@ -1366,6 +1366,9 @@ componentize: build
 optimize: componentize
     wite build component.wasm -Oz -o optimized.wasm
 
+publish: optimize
+    wkg publish optimized.wasm
+
 run: componentize
     wasmtime run component.wasm
 
@@ -1491,6 +1494,9 @@ componentize: build
 optimize: componentize
     wite build component.wasm -Oz -o optimized.wasm
 
+publish: optimize
+    wkg publish optimized.wasm
+
 run: componentize
     wasmtime run component.wasm
 
@@ -1581,6 +1587,9 @@ componentize: build
 
 optimize: componentize
     wite build component.wasm -Oz -o optimized.wasm
+
+publish: optimize
+    wkg publish optimized.wasm
 
 run: componentize
     wasmtime run component.wasm
