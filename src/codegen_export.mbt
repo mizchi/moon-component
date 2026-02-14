@@ -263,7 +263,21 @@ fn Generator::type_to_ffi_params(
       let typedef = self.resolve.types[id]
       match typedef.kind {
         List(_) => [name + "_ptr : Int", name + "_len : Int"]
-        Record(_) | Variant(_) => [name + "_ptr : Int"]
+        Record(_) => [name + "_ptr : Int"]
+        Variant(cases) => {
+          let joined = self.variant_joined_payload(cases)
+          let params : Array[String] = [name + "_disc : Int"]
+          for i, ft in joined {
+            params.push(
+              name +
+              "_p" +
+              i.to_string() +
+              " : " +
+              flat_val_type_to_moonbit(ft),
+            )
+          }
+          params
+        }
         Flags(_) => [name + " : Int"] // bitmask
         _ => [name + " : " + self.type_to_ffi(ty)]
       }
@@ -415,16 +429,17 @@ fn Generator::generate_param_lift(
           sb.to_string()
         }
         Variant(cases) => {
-          // Lift variant from linear memory (discriminant + payload)
+          // Lift variant from flat params (canonical ABI flattening)
           let type_name = self.resolve_type_name(id)
+          let joined = self.variant_joined_payload(cases)
           let sb = StringBuilder::new()
           sb.write_string("let ")
           sb.write_string(name)
           sb.write_string(" : ")
           sb.write_string(type_name)
-          sb.write_string(" = match @cabi.cabi_read_i32(")
+          sb.write_string(" = match ")
           sb.write_string(name)
-          sb.write_string("_ptr) {\n")
+          sb.write_string("_disc {\n")
           for i, case in cases {
             sb.write_string("    ")
             sb.write_string(i.to_string())
@@ -433,9 +448,13 @@ fn Generator::generate_param_lift(
             match case.case_type {
               Some(payload_ty) => {
                 sb.write_string("(")
-                sb.write_string(
-                  self.generate_field_lift(name + "_ptr + 4", 0, payload_ty),
+                let (expr, _) = self.generate_flat_lift_expr(
+                  payload_ty,
+                  name,
+                  0,
+                  joined,
                 )
+                sb.write_string(expr)
                 sb.write_string(")")
               }
               None => ()
@@ -514,6 +533,71 @@ fn Generator::generate_field_lift(
           sb.write_string(" } : ")
           sb.write_string(type_name)
           sb.write_string(")")
+          sb.to_string()
+        }
+        Variant(cases) => {
+          let type_name = self.resolve_type_name(id)
+          let sb = StringBuilder::new()
+          sb.write_string("(match @cabi.cabi_read_i32(")
+          sb.write_string(offset_str)
+          sb.write_string(") {\n")
+          for i, case in cases {
+            sb.write_string("          ")
+            sb.write_string(i.to_string())
+            sb.write_string(" => ")
+            sb.write_string(to_pascal_case(case.name))
+            match case.case_type {
+              Some(payload_ty) => {
+                sb.write_string("(")
+                sb.write_string(
+                  self.generate_field_lift(offset_str + " + 4", 0, payload_ty),
+                )
+                sb.write_string(")")
+              }
+              None => ()
+            }
+            sb.write_string("\n")
+          }
+          sb.write_string("          _ => abort(\"invalid variant discriminant\")\n")
+          sb.write_string("        } : ")
+          sb.write_string(type_name)
+          sb.write_string(")")
+          sb.to_string()
+        }
+        List(inner) => {
+          let elem_size = self.type_size(inner)
+          let list_type = self.type_name(Id(id))
+          let sb = StringBuilder::new()
+          sb.write_string("({ let list_ptr = @cabi.cabi_read_i32(")
+          sb.write_string(offset_str)
+          sb.write_string("); let list_len = @cabi.cabi_read_i32(")
+          sb.write_string(offset_str)
+          sb.write_string(" + 4); let arr : ")
+          sb.write_string(list_type)
+          sb.write_string(" = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(")
+          sb.write_string(
+            self.generate_list_elem_lift(
+              inner,
+              "list_ptr + i * " + elem_size.to_string(),
+            ),
+          )
+          sb.write_string(") }; arr })")
+          sb.to_string()
+        }
+        Enum(_) => {
+          let type_name = self.resolve_type_name(id)
+          type_name +
+          "::from_ordinal(@cabi.cabi_read_i32(" +
+          offset_str +
+          "))"
+        }
+        Option(inner) => {
+          let sb = StringBuilder::new()
+          sb.write_string("(if @cabi.cabi_read_i32(")
+          sb.write_string(offset_str)
+          sb.write_string(") != 0 { Some(")
+          sb.write_string(self.generate_field_lift(offset_str + " + 4", 0, inner))
+          sb.write_string(") } else { None })")
           sb.to_string()
         }
         _ => "@cabi.cabi_read_i32(" + offset_str + ") // TODO: lift nested type"
@@ -704,9 +788,37 @@ fn Generator::generate_result_lower_indirect(
               }
               sb.write_string("  retptr\n")
             }
-            Variant(_) => {
-              sb.write_string("  // TODO: lower variant to linear memory\n")
-              sb.write_string("  0\n")
+            Variant(cases) => {
+              let variant_size = self.type_size(Id(id))
+              let variant_align = self.type_align(Id(id))
+              sb.write_string("  let retptr = @cabi.cabi_realloc(0, 0, ")
+              sb.write_string(variant_align.to_string())
+              sb.write_string(", ")
+              sb.write_string(variant_size.to_string())
+              sb.write_string(")\n")
+              sb.write_string("  match result {\n")
+              for i, case in cases {
+                let case_name = to_pascal_case(case.name)
+                sb.write_string("    ")
+                sb.write_string(case_name)
+                match case.case_type {
+                  Some(payload_ty) => {
+                    sb.write_string("(val) => {\n")
+                    sb.write_string("      @cabi.cabi_write_i32(retptr, ")
+                    sb.write_string(i.to_string())
+                    sb.write_string(")\n")
+                    self.generate_field_lower(sb, "retptr + 4", payload_ty, "val")
+                    sb.write_string("    }\n")
+                  }
+                  None => {
+                    sb.write_string(" => @cabi.cabi_write_i32(retptr, ")
+                    sb.write_string(i.to_string())
+                    sb.write_string(")\n")
+                  }
+                }
+              }
+              sb.write_string("  }\n")
+              sb.write_string("  retptr\n")
             }
             _ => {
               sb.write_string("  // TODO: lower complex type\n")

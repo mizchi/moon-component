@@ -208,6 +208,73 @@ fn Generator::generate_list_elem_lift(
           sb.write_string(")")
           sb.to_string()
         }
+        Variant(cases) => {
+          let type_name = self.resolve_type_name(id)
+          let sb = StringBuilder::new()
+          sb.write_string("(match @cabi.cabi_read_i32(")
+          sb.write_string(ptr_var)
+          sb.write_string(") {\n")
+          for i, case in cases {
+            sb.write_string("        ")
+            sb.write_string(i.to_string())
+            sb.write_string(" => ")
+            sb.write_string(to_pascal_case(case.name))
+            match case.case_type {
+              Some(payload_ty) => {
+                sb.write_string("(")
+                sb.write_string(
+                  self.generate_list_elem_lift(
+                    payload_ty,
+                    ptr_var + " + 4",
+                  ),
+                )
+                sb.write_string(")")
+              }
+              None => ()
+            }
+            sb.write_string("\n")
+          }
+          sb.write_string("        _ => abort(\"invalid variant discriminant\")\n")
+          sb.write_string("      } : ")
+          sb.write_string(type_name)
+          sb.write_string(")")
+          sb.to_string()
+        }
+        Enum(_) => {
+          let type_name = self.resolve_type_name(id)
+          type_name + "::from_ordinal(@cabi.cabi_read_i32(" + ptr_var + "))"
+        }
+        List(inner) => {
+          let elem_size = self.type_size(inner)
+          let list_type = self.type_name(Id(id))
+          let sb = StringBuilder::new()
+          sb.write_string("({ let list_ptr = @cabi.cabi_read_i32(")
+          sb.write_string(ptr_var)
+          sb.write_string("); let list_len = @cabi.cabi_read_i32(")
+          sb.write_string(ptr_var)
+          sb.write_string(" + 4); let arr : ")
+          sb.write_string(list_type)
+          sb.write_string(" = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(")
+          sb.write_string(
+            self.generate_list_elem_lift(
+              inner,
+              "list_ptr + i * " + elem_size.to_string(),
+            ),
+          )
+          sb.write_string(") }; arr })")
+          sb.to_string()
+        }
+        Option(inner) => {
+          let sb = StringBuilder::new()
+          sb.write_string("(if @cabi.cabi_read_i32(")
+          sb.write_string(ptr_var)
+          sb.write_string(") != 0 { Some(")
+          sb.write_string(
+            self.generate_list_elem_lift(inner, ptr_var + " + 4"),
+          )
+          sb.write_string(") } else { None })")
+          sb.to_string()
+        }
         _ =>
           "@cabi.cabi_read_i32(" + ptr_var + ") // TODO: lift complex element"
       }
@@ -369,6 +436,85 @@ fn Generator::generate_value_lower(
           sb.write_string("@cabi.cabi_write_i32(")
           sb.write_string(ptr_expr)
           sb.write_string(" + 4, len)\n")
+        }
+        Variant(cases) => {
+          // Lower variant: write discriminant + payload
+          sb.write_string(indent)
+          sb.write_string("match ")
+          sb.write_string(val_expr)
+          sb.write_string(" {\n")
+          for i, case in cases {
+            let case_name = to_pascal_case(case.name)
+            sb.write_string(indent)
+            sb.write_string("  ")
+            sb.write_string(case_name)
+            match case.case_type {
+              Some(payload_ty) => {
+                sb.write_string("(payload) => {\n")
+                sb.write_string(indent)
+                sb.write_string("    @cabi.cabi_write_i32(")
+                sb.write_string(ptr_expr)
+                sb.write_string(", ")
+                sb.write_string(i.to_string())
+                sb.write_string(")\n")
+                self.generate_value_lower(
+                  sb,
+                  ptr_expr + " + 4",
+                  payload_ty,
+                  "payload",
+                  indent + "    ",
+                )
+                sb.write_string(indent)
+                sb.write_string("  }\n")
+              }
+              None => {
+                sb.write_string(" => @cabi.cabi_write_i32(")
+                sb.write_string(ptr_expr)
+                sb.write_string(", ")
+                sb.write_string(i.to_string())
+                sb.write_string(")\n")
+              }
+            }
+          }
+          sb.write_string(indent)
+          sb.write_string("}\n")
+        }
+        Enum(_) => {
+          // Lower enum: write ordinal
+          sb.write_string(indent)
+          sb.write_string("@cabi.cabi_write_i32(")
+          sb.write_string(ptr_expr)
+          sb.write_string(", ")
+          sb.write_string(val_expr)
+          sb.write_string(".ordinal())\n")
+        }
+        Option(inner) => {
+          // Lower option: discriminant + payload
+          sb.write_string(indent)
+          sb.write_string("match ")
+          sb.write_string(val_expr)
+          sb.write_string(" {\n")
+          sb.write_string(indent)
+          sb.write_string("  Some(payload) => {\n")
+          sb.write_string(indent)
+          sb.write_string("    @cabi.cabi_write_i32(")
+          sb.write_string(ptr_expr)
+          sb.write_string(", 1)\n")
+          self.generate_value_lower(
+            sb,
+            ptr_expr + " + 4",
+            inner,
+            "payload",
+            indent + "    ",
+          )
+          sb.write_string(indent)
+          sb.write_string("  }\n")
+          sb.write_string(indent)
+          sb.write_string("  None => @cabi.cabi_write_i32(")
+          sb.write_string(ptr_expr)
+          sb.write_string(", 0)\n")
+          sb.write_string(indent)
+          sb.write_string("}\n")
         }
         _ => {
           sb.write_string(indent)
@@ -572,5 +718,331 @@ fn Generator::result_to_ffi(
   match result {
     None => "Unit"
     Some(ty) => self.type_to_ffi(ty)
+  }
+}
+
+///| Flat value type for canonical ABI param/result flattening
+enum FlatValType {
+  FlatI32
+  FlatI64
+  FlatF32
+  FlatF64
+} derive(Eq)
+
+///| Join two flat types per canonical ABI rules
+fn join_flat_type(a : FlatValType, b : FlatValType) -> FlatValType {
+  if a == b {
+    return a
+  }
+  match (a, b) {
+    (FlatI32, FlatF32) | (FlatF32, FlatI32) => FlatI32
+    _ => FlatI64
+  }
+}
+
+///| Convert flat type to MoonBit type string
+fn flat_val_type_to_moonbit(ft : FlatValType) -> String {
+  match ft {
+    FlatI32 => "Int"
+    FlatI64 => "Int64"
+    FlatF32 => "Float"
+    FlatF64 => "Double"
+  }
+}
+
+///| Get flat type representation for a type (canonical ABI)
+fn Generator::type_flat_types(
+  self : Generator,
+  ty : @resolve.Type,
+) -> Array[FlatValType] {
+  match ty {
+    Bool | U8 | S8 | U16 | S16 | U32 | S32 | Char => [FlatI32]
+    U64 | S64 => [FlatI64]
+    F32 => [FlatF32]
+    F64 => [FlatF64]
+    String_ => [FlatI32, FlatI32]
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        Record(fields) => {
+          let result : Array[FlatValType] = []
+          for field in fields {
+            for ft in self.type_flat_types(field.field_type) {
+              result.push(ft)
+            }
+          }
+          result
+        }
+        Variant(cases) => {
+          let payload = self.variant_joined_payload(cases)
+          let result : Array[FlatValType] = [FlatI32]
+          for ft in payload {
+            result.push(ft)
+          }
+          result
+        }
+        List(_) => [FlatI32, FlatI32]
+        Enum(_) | Flags(_) => [FlatI32]
+        Option(inner) => {
+          let inner_flat = self.type_flat_types(inner)
+          let result : Array[FlatValType] = [FlatI32]
+          for ft in inner_flat {
+            result.push(ft)
+          }
+          result
+        }
+        Result(ok~, err~) => {
+          let payload : Array[FlatValType] = []
+          match ok {
+            Some(t) => {
+              let flat = self.type_flat_types(t)
+              for i, ft in flat {
+                if i < payload.length() {
+                  payload[i] = join_flat_type(payload[i], ft)
+                } else {
+                  payload.push(ft)
+                }
+              }
+            }
+            None => ()
+          }
+          match err {
+            Some(t) => {
+              let flat = self.type_flat_types(t)
+              for i, ft in flat {
+                if i < payload.length() {
+                  payload[i] = join_flat_type(payload[i], ft)
+                } else {
+                  payload.push(ft)
+                }
+              }
+            }
+            None => ()
+          }
+          let result : Array[FlatValType] = [FlatI32]
+          for ft in payload {
+            result.push(ft)
+          }
+          result
+        }
+        Tuple(types) => {
+          let result : Array[FlatValType] = []
+          for t in types {
+            for ft in self.type_flat_types(t) {
+              result.push(ft)
+            }
+          }
+          result
+        }
+        Alias(inner) => self.type_flat_types(inner)
+        _ => [FlatI32]
+      }
+    }
+  }
+}
+
+///| Get joined payload flat types for a variant's cases
+fn Generator::variant_joined_payload(
+  self : Generator,
+  cases : Array[@resolve.VariantCase],
+) -> Array[FlatValType] {
+  let payload : Array[FlatValType] = []
+  for case in cases {
+    match case.case_type {
+      Some(t) => {
+        let case_flat = self.type_flat_types(t)
+        for i, ft in case_flat {
+          if i < payload.length() {
+            payload[i] = join_flat_type(payload[i], ft)
+          } else {
+            payload.push(ft)
+          }
+        }
+      }
+      None => ()
+    }
+  }
+  payload
+}
+
+///| Generate coercion expression from joined flat type to original flat type
+fn coerce_flat_expr(
+  expr : String,
+  have : FlatValType,
+  want : FlatValType,
+) -> String {
+  if have == want {
+    return expr
+  }
+  match (have, want) {
+    (FlatI64, FlatI32) => expr + ".to_int()"
+    (FlatI64, FlatF64) => expr + ".reinterpret_as_double()"
+    (FlatI64, FlatF32) =>
+      "Float::from_bits(" + expr + ".to_int().reinterpret_as_uint())"
+    (FlatI32, FlatF32) =>
+      "Float::from_bits(" + expr + ".reinterpret_as_uint())"
+    _ => expr
+  }
+}
+
+///| Lift a type from flat params (for variant case payloads)
+fn Generator::generate_flat_lift_expr(
+  self : Generator,
+  ty : @resolve.Type,
+  param_base : String,
+  pos : Int,
+  joined : Array[FlatValType],
+) -> (String, Int) {
+  match ty {
+    Bool => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+      (coerced + " != 0", 1)
+    }
+    U8 => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+      ("(" + coerced + " & 0xff).to_byte()", 1)
+    }
+    S8 | S16 | S32 => {
+      let p = param_base + "_p" + pos.to_string()
+      (coerce_flat_expr(p, joined[pos], FlatI32), 1)
+    }
+    U16 => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+      ("(" + coerced + " & 0xffff).reinterpret_as_uint()", 1)
+    }
+    U32 => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+      (coerced + ".reinterpret_as_uint()", 1)
+    }
+    U64 => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI64)
+      (coerced + ".reinterpret_as_uint64()", 1)
+    }
+    S64 => {
+      let p = param_base + "_p" + pos.to_string()
+      (coerce_flat_expr(p, joined[pos], FlatI64), 1)
+    }
+    F32 => {
+      let p = param_base + "_p" + pos.to_string()
+      (coerce_flat_expr(p, joined[pos], FlatF32), 1)
+    }
+    F64 => {
+      let p = param_base + "_p" + pos.to_string()
+      (coerce_flat_expr(p, joined[pos], FlatF64), 1)
+    }
+    Char => {
+      let p = param_base + "_p" + pos.to_string()
+      let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+      (coerced + ".unsafe_to_char()", 1)
+    }
+    String_ => {
+      let p0 = param_base + "_p" + pos.to_string()
+      let p1 = param_base + "_p" + (pos + 1).to_string()
+      let ptr_expr = coerce_flat_expr(p0, joined[pos], FlatI32)
+      let len_expr = coerce_flat_expr(p1, joined[pos + 1], FlatI32)
+      ("@cabi.cabi_lift_string(" + ptr_expr + ", " + len_expr + ")", 2)
+    }
+    Id(id) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        Record(fields) => {
+          let type_name = self.resolve_type_name(id)
+          let sb = StringBuilder::new()
+          sb.write_string("({ ")
+          let mut consumed = 0
+          for i, field in fields {
+            if i > 0 {
+              sb.write_string(", ")
+            }
+            let field_name = to_snake_case(field.name)
+            let (expr, n) = self.generate_flat_lift_expr(
+              field.field_type,
+              param_base,
+              pos + consumed,
+              joined,
+            )
+            sb.write_string(field_name)
+            sb.write_string(": ")
+            sb.write_string(expr)
+            consumed = consumed + n
+          }
+          sb.write_string(" } : ")
+          sb.write_string(type_name)
+          sb.write_string(")")
+          (sb.to_string(), consumed)
+        }
+        List(_) => {
+          let elem_ty = match typedef.kind {
+            List(inner) => inner
+            _ => abort("unreachable")
+          }
+          let elem_size = self.type_size(elem_ty)
+          let list_type = self.type_name(Id(id))
+          let p0 = param_base + "_p" + pos.to_string()
+          let p1 = param_base + "_p" + (pos + 1).to_string()
+          let ptr_expr = coerce_flat_expr(p0, joined[pos], FlatI32)
+          let len_expr = coerce_flat_expr(p1, joined[pos + 1], FlatI32)
+          let sb = StringBuilder::new()
+          sb.write_string("({ let list_ptr = ")
+          sb.write_string(ptr_expr)
+          sb.write_string("; let list_len = ")
+          sb.write_string(len_expr)
+          sb.write_string("; let arr : ")
+          sb.write_string(list_type)
+          sb.write_string(
+            " = Array::new(capacity=list_len); for i = 0; i < list_len; i = i + 1 { arr.push(",
+          )
+          sb.write_string(
+            self.generate_list_elem_lift(
+              elem_ty,
+              "list_ptr + i * " + elem_size.to_string(),
+            ),
+          )
+          sb.write_string(") }; arr })")
+          (sb.to_string(), 2)
+        }
+        Enum(_) => {
+          let type_name = self.resolve_type_name(id)
+          let p = param_base + "_p" + pos.to_string()
+          let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+          (type_name + "::from_ordinal(" + coerced + ")", 1)
+        }
+        Flags(_) => {
+          let type_name = self.resolve_type_name(id)
+          let p = param_base + "_p" + pos.to_string()
+          let coerced = coerce_flat_expr(p, joined[pos], FlatI32)
+          (type_name + "::from_bits(" + coerced + ")", 1)
+        }
+        Option(inner) => {
+          let p_disc = param_base + "_p" + pos.to_string()
+          let disc_expr = coerce_flat_expr(p_disc, joined[pos], FlatI32)
+          let (inner_expr, inner_consumed) = self.generate_flat_lift_expr(
+            inner,
+            param_base,
+            pos + 1,
+            joined,
+          )
+          (
+            "(if " +
+            disc_expr +
+            " != 0 { Some(" +
+            inner_expr +
+            ") } else { None })",
+            1 + inner_consumed,
+          )
+        }
+        Alias(inner) =>
+          self.generate_flat_lift_expr(inner, param_base, pos, joined)
+        _ => {
+          let p = param_base + "_p" + pos.to_string()
+          (coerce_flat_expr(p, joined[pos], FlatI32), 1)
+        }
+      }
+    }
   }
 }
