@@ -481,7 +481,8 @@ fn Generator::generate_field_lift(
   }
   match ty {
     Bool => "@cabi.cabi_read_i32(" + offset_str + ") != 0"
-    U8 | S8 => "@cabi.cabi_read_u8(" + offset_str + ").to_int()" // byte access
+    U8 => "@cabi.cabi_read_u8(" + offset_str + ")" // Byte
+    S8 => "@cabi.cabi_read_u8(" + offset_str + ").to_int()" // Int via byte access
     U16 | S16 => "@cabi.cabi_read_i32(" + offset_str + ") & 0xffff"
     U32 | S32 => "@cabi.cabi_read_i32(" + offset_str + ")"
     U64 => "@cabi.cabi_read_i64(" + offset_str + ").reinterpret_as_uint64()"
@@ -583,7 +584,21 @@ fn Generator::generate_field_lift(
           sb.write_string(" + 4); let " + la + " : ")
           sb.write_string(list_type)
           sb.write_string(
-            " = Array::new(capacity=" + ll + "); for " + li + " = 0; " + li + " < " + ll + "; " + li + " = " + li + " + 1 { " + la + ".push(",
+            " = Array::new(capacity=" +
+            ll +
+            "); for " +
+            li +
+            " = 0; " +
+            li +
+            " < " +
+            ll +
+            "; " +
+            li +
+            " = " +
+            li +
+            " + 1 { " +
+            la +
+            ".push(",
           )
           sb.write_string(
             self.generate_list_elem_lift(
