@@ -30,13 +30,19 @@ async fn main {
     cmd_componentize(args)
     return
   }
-  if args.length() < 2 {
+  // Handle "generate" as alias for default command
+  let generate_mode = args.length() >= 2 && args[1] == "generate"
+  if not(generate_mode) && args.length() < 2 {
     println(
-      "Usage: moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n       moon-component fetch [options] <pkg-spec>...\n       moon-component componentize <core.wasm> --wit <wit-dir> [--world <name>] -o <output.wasm>\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wite                 Generate wite.config.jsonc for wite pipeline\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
+      "Usage: moon-component generate <wit-path> [options]\n       moon-component <resolve.json|wit-path> [options]\n       moon-component plug <socket.wasm> --plug <plug.wasm>... -o <out.wasm>\n       moon-component compose <composition.wac> -o <out.wasm>\n       moon-component wac-parse <composition.wac>\n       moon-component wac-resolve <composition.wac>\n       moon-component targets <component.wasm> <wit-path> [--world <name>]\n       moon-component fetch [options] <pkg-spec>...\n       moon-component componentize <core.wasm> --wit-dir <wit-dir> [--world <name>] -o <output.wasm>\n\nOptions:\n  --wit <path>          Treat input as WIT file or directory\n  --wit-dir <path>      Alias for --wit\n  --resolve-json <path> Treat input as resolve.json\n  --world <name>        World name when resolving WIT\n  --out-dir <dir>       Output directory\n  --project-name <name> Project name for imports\n  --gen-dir <dir>       Generated code directory (default: gen)\n  --impl-dir <dir>      Implementation directory (default: impl)\n  --no-impl             Don't generate impl files\n  --wkg                  Generate wkg.toml for wa.dev deployment\n  --wite                 Generate wite.config.jsonc for wite pipeline\n  --wkg-version <ver>   Package version (default: 0.1.0)\n  --pkg-format <fmt>    Package format: json (moon.pkg.json) or dsl (moon.pkg)\n  --js-string-builtins  Enable JS String Builtins (wasm-gc only)",
     )
     @sys.exit(1)
   }
-  let mut input_path = args[1]
+  if generate_mode && args.length() < 3 {
+    println("Usage: moon-component generate <wit-path> [options]")
+    @sys.exit(1)
+  }
+  let mut input_path = if generate_mode { args[2] } else { args[1] }
   let mut input_kind = "auto"
 
   // Parse options
@@ -51,9 +57,9 @@ async fn main {
   let mut pkg_format : @codegen.PkgFormat = @codegen.Json
   let mut use_js_string_builtins = false
   let mut world_name : String? = None
-  let mut i = 2
+  let mut i = if generate_mode { 3 } else { 2 }
   while i < args.length() {
-    if args[i] == "--wit" && i + 1 < args.length() {
+    if (args[i] == "--wit" || args[i] == "--wit-dir") && i + 1 < args.length() {
       input_path = args[i + 1]
       input_kind = "wit"
       i = i + 2

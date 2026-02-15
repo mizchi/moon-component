@@ -10,7 +10,7 @@ fn cmd_componentize(args : Array[String]) -> Unit {
   let mut output_path : String? = None
   let mut i = 2
   while i < args.length() {
-    if args[i] == "--wit" && i + 1 < args.length() {
+    if (args[i] == "--wit" || args[i] == "--wit-dir") && i + 1 < args.length() {
       wit_path = Some(args[i + 1])
       i = i + 2
     } else if args[i] == "--world" && i + 1 < args.length() {
