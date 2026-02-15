@@ -13,10 +13,18 @@ pub fn cabi_realloc(
 
 pub fn wasmExportRun() -> Int {
   let result = run()
+  let retptr = @cabi.cabi_realloc(0, 0, 1, 1)
   match result {
-    Ok(_) => 0
-    Err(_) => 1
+    Ok(val) => {
+      @cabi.cabi_write_u8(retptr, (0).to_byte()) // discriminant: Ok
+      // TODO: lower nested type val
+    }
+    Err(e) => {
+      @cabi.cabi_write_u8(retptr, (1).to_byte()) // discriminant: Err
+      // TODO: lower nested type e
+    }
   }
+  retptr
 }
 
 ///|
