@@ -13,6 +13,12 @@ jobs:
         run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
+      - name: Install wasm-tools
+        run: |
+          curl -LO https://github.com/bytecodealliance/wasm-tools/releases/download/v1.228.0/wasm-tools-1.228.0-x86_64-linux.tar.gz
+          tar xzf wasm-tools-1.228.0-x86_64-linux.tar.gz
+          cp wasm-tools-1.228.0-x86_64-linux/wasm-tools ~/.local/bin/
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Moon version
         run: moon version --all
       - run: moon update
@@ -21,9 +27,7 @@ jobs:
       - name: Build native CLI
         run: |
           moon build --target native --release
-          mkdir -p ~/.local/bin
           cp _build/native/release/build/src/main/main.exe ~/.local/bin/moon-component
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Generate hello example
         run: moon-component generate examples/hello/wit/world.wit -p hello -o examples/hello
       - name: Build hello wasm
@@ -32,7 +36,4 @@ jobs:
       - name: Componentize hello
         run: moon-component componentize examples/hello/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/hello/wit -o /tmp/hello.component.wasm
       - name: Verify component WIT
-        run: |
-          curl -LO https://github.com/bytecodealliance/wasm-tools/releases/download/v1.228.0/wasm-tools-1.228.0-x86_64-linux.tar.gz
-          tar xzf wasm-tools-1.228.0-x86_64-linux.tar.gz
-          ./wasm-tools-1.228.0-x86_64-linux/wasm-tools component wit /tmp/hello.component.wasm
+        run: wasm-tools component wit /tmp/hello.component.wasm
