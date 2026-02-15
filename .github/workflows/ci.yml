@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  wasi-cli:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,13 +16,23 @@ jobs:
       - name: Moon version
         run: moon version --all
       - run: moon update
+      - name: Run unit tests
+        run: moon test
       - name: Build native CLI
         run: |
           moon build --target native --release
           mkdir -p ~/.local/bin
           cp _build/native/release/build/src/main/main.exe ~/.local/bin/moon-component
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: moon-component generate examples/wasi-cli/wit/world.wit -o examples/wasi-cli
-      - run: moon build --target wasm --release impl
-        working-directory: examples/wasi-cli
-      - run: moon-component componentize examples/wasi-cli/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/wasi-cli/wit -o /tmp/wasi-cli.component.wasm
+      - name: Generate hello example
+        run: moon-component generate examples/hello/wit/world.wit -p hello -o examples/hello
+      - name: Build hello wasm
+        run: moon build --target wasm --release
+        working-directory: examples/hello
+      - name: Componentize hello
+        run: moon-component componentize examples/hello/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/hello/wit -o /tmp/hello.component.wasm
+      - name: Verify component WIT
+        run: |
+          curl -LO https://github.com/bytecodealliance/wasm-tools/releases/download/v1.228.0/wasm-tools-1.228.0-x86_64-linux.tar.gz
+          tar xzf wasm-tools-1.228.0-x86_64-linux.tar.gz
+          ./wasm-tools-1.228.0-x86_64-linux/wasm-tools component wit /tmp/hello.component.wasm
