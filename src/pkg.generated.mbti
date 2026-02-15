@@ -19,6 +19,9 @@ pub struct ExportInfo {
 }
 pub impl Show for ExportInfo
 
+type FlatValType
+pub impl Eq for FlatValType
+
 pub struct GeneratedFile {
   path : String
   content : String
@@ -35,6 +38,7 @@ pub struct Generator {
   moon_mod_name : Ref[String]
 }
 pub fn Generator::detect_dependencies(Self, @resolve.World) -> Array[@resolve.PackageName]
+pub fn Generator::detect_retptr_imports(Self) -> Array[RetptrImportInfo]
 pub fn Generator::generate(Self) -> Array[GeneratedFile]
 pub fn Generator::new(@resolve.Resolve, Int, GeneratorOpts) -> Self
 
@@ -60,6 +64,12 @@ pub(all) enum PkgFormat {
 }
 pub impl Eq for PkgFormat
 pub impl Show for PkgFormat
+
+pub(all) struct RetptrImportInfo {
+  import_module : String
+  func_name : String
+}
+pub impl Show for RetptrImportInfo
 
 // Type aliases
 

@@ -261,13 +261,11 @@ test "import_retptr_size_variant_f64" {
   // variant value { val-null, val-int(s32), val-float(f64) }
   let typedef : @resolve.TypeDef = {
     name: Some("value"),
-    kind: Variant(
-      [
-        { name: "val-null", case_type: None },
-        { name: "val-int", case_type: Some(S32) },
-        { name: "val-float", case_type: Some(F64) },
-      ],
-    ),
+    kind: Variant([
+      { name: "val-null", case_type: None },
+      { name: "val-int", case_type: Some(S32) },
+      { name: "val-float", case_type: Some(F64) },
+    ]),
     owner: @resolve.TypeOwner::Interface(0),
   }
   let func : @resolve.Function = {
@@ -287,13 +285,11 @@ test "import_retptr_size_variant_f64" {
 test "import_retptr_size_variant_s32" {
   let typedef : @resolve.TypeDef = {
     name: Some("op"),
-    kind: Variant(
-      [
-        { name: "add", case_type: Some(S32) },
-        { name: "sub", case_type: Some(S32) },
-        { name: "nop", case_type: None },
-      ],
-    ),
+    kind: Variant([
+      { name: "add", case_type: Some(S32) },
+      { name: "sub", case_type: Some(S32) },
+      { name: "nop", case_type: None },
+    ]),
     owner: @resolve.TypeOwner::Interface(0),
   }
   let func : @resolve.Function = {
@@ -368,15 +364,13 @@ test "import_codegen_variant_return_layout" {
   // variant value { val-null, val-bool(bool), val-int(s32), val-float(f64), val-str(string) }
   let typedef : @resolve.TypeDef = {
     name: Some("value"),
-    kind: Variant(
-      [
-        { name: "val-null", case_type: None },
-        { name: "val-bool", case_type: Some(Bool) },
-        { name: "val-int", case_type: Some(S32) },
-        { name: "val-float", case_type: Some(F64) },
-        { name: "val-str", case_type: Some(String_) },
-      ],
-    ),
+    kind: Variant([
+      { name: "val-null", case_type: None },
+      { name: "val-bool", case_type: Some(Bool) },
+      { name: "val-int", case_type: Some(S32) },
+      { name: "val-float", case_type: Some(F64) },
+      { name: "val-str", case_type: Some(String_) },
+    ]),
     owner: @resolve.TypeOwner::Interface(0),
   }
   let func : @resolve.Function = {
@@ -429,13 +423,11 @@ test "import_codegen_option_return_layout" {
 test "import_codegen_variant_param_lower" {
   let typedef : @resolve.TypeDef = {
     name: Some("value"),
-    kind: Variant(
-      [
-        { name: "val-null", case_type: None },
-        { name: "val-int", case_type: Some(S32) },
-        { name: "val-float", case_type: Some(F64) },
-      ],
-    ),
+    kind: Variant([
+      { name: "val-null", case_type: None },
+      { name: "val-int", case_type: Some(S32) },
+      { name: "val-float", case_type: Some(F64) },
+    ]),
     owner: @resolve.TypeOwner::Interface(0),
   }
   let func : @resolve.Function = {

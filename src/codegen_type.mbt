@@ -402,7 +402,21 @@ fn Generator::generate_list_elem_lift(
           sb.write_string(" + 4); let " + la + " : ")
           sb.write_string(list_type)
           sb.write_string(
-            " = Array::new(capacity=" + ll + "); for " + li + " = 0; " + li + " < " + ll + "; " + li + " = " + li + " + 1 { " + la + ".push(",
+            " = Array::new(capacity=" +
+            ll +
+            "); for " +
+            li +
+            " = 0; " +
+            li +
+            " < " +
+            ll +
+            "; " +
+            li +
+            " = " +
+            li +
+            " + 1 { " +
+            la +
+            ".push(",
           )
           sb.write_string(
             self.generate_list_elem_lift(

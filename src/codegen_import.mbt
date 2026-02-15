@@ -401,7 +401,11 @@ fn Generator::generate_import_wrapper_body(
             let payload_align = self.type_align(inner)
             let payload_offset = align_to(
               1,
-              if payload_align > 1 { payload_align } else { 1 },
+              if payload_align > 1 {
+                payload_align
+              } else {
+                1
+              },
             )
             let total_size = payload_offset + self.type_size(inner)
             let alloc_align = self.type_align(Id(id))
@@ -459,11 +463,19 @@ fn Generator::generate_import_wrapper_body(
             } else {
               err_align
             }
-            let payload_size = if ok_size > err_size { ok_size } else { err_size }
+            let payload_size = if ok_size > err_size {
+              ok_size
+            } else {
+              err_size
+            }
             // Result = 2-case variant: disc_size=1
             let payload_offset = align_to(
               1,
-              if max_payload_align > 1 { max_payload_align } else { 1 },
+              if max_payload_align > 1 {
+                max_payload_align
+              } else {
+                1
+              },
             )
             let total_size = payload_offset + payload_size
             let alloc_align = self.type_align(Id(id))
@@ -494,8 +506,7 @@ fn Generator::generate_import_wrapper_body(
             sb.write_string(disc_write_code(ptr_name, "1", 2))
             sb.write_string("\n")
             match err_ty {
-              Some(t) =>
-                self.generate_value_lower(sb, po_str, t, "e", "      ")
+              Some(t) => self.generate_value_lower(sb, po_str, t, "e", "      ")
               None => ()
             }
             sb.write_string("    }\n")
@@ -540,11 +551,7 @@ fn Generator::generate_import_wrapper_body(
               sb.write_string(" => {\n")
               sb.write_string("      ")
               sb.write_string(
-                disc_write_code(
-                  ptr_name,
-                  case_i.to_string(),
-                  cases.length(),
-                ),
+                disc_write_code(ptr_name, case_i.to_string(), cases.length()),
               )
               sb.write_string("\n")
               match case.case_type {
@@ -637,7 +644,14 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
         Option(inner) => {
           // Option is variant with 2 cases: disc_size=1
           let payload_align = self.type_align(inner)
-          let payload_offset = align_to(1, if payload_align > 1 { payload_align } else { 1 })
+          let payload_offset = align_to(
+            1,
+            if payload_align > 1 {
+              payload_align
+            } else {
+              1
+            },
+          )
           payload_offset + self.type_size(inner)
         }
         Result(ok=ok_ty, err=err_ty) => {
@@ -666,7 +680,11 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
           // Result is variant with 2 cases: disc_size=1
           let payload_offset = align_to(
             1,
-            if max_payload_align > 1 { max_payload_align } else { 1 },
+            if max_payload_align > 1 {
+              max_payload_align
+            } else {
+              1
+            },
           )
           payload_offset + payload_size
         }
@@ -691,7 +709,11 @@ fn Generator::import_retptr_size(self : Generator, ty : @resolve.Type) -> Int {
           let ds = disc_size(cases.length())
           let payload_offset = align_to(
             ds,
-            if max_payload_align > 1 { max_payload_align } else { 1 },
+            if max_payload_align > 1 {
+              max_payload_align
+            } else {
+              1
+            },
           )
           payload_offset + max_payload
         }
@@ -796,7 +818,11 @@ fn Generator::generate_import_retptr_result(
           let payload_align = self.type_align(inner)
           let payload_offset = align_to(
             1,
-            if payload_align > 1 { payload_align } else { 1 },
+            if payload_align > 1 {
+              payload_align
+            } else {
+              1
+            },
           )
           sb.write_string("  match ")
           sb.write_string(disc_read_code("retptr", 2))
@@ -830,7 +856,11 @@ fn Generator::generate_import_retptr_result(
           }
           let payload_offset = align_to(
             1,
-            if max_payload_align > 1 { max_payload_align } else { 1 },
+            if max_payload_align > 1 {
+              max_payload_align
+            } else {
+              1
+            },
           )
           let po_str = "retptr + " + payload_offset.to_string()
           sb.write_string("  match ")
@@ -949,4 +979,52 @@ fn Generator::generate_world_import_pkg(
   }
   let path = self.world_path(world, filename)
   self.output.push({ path, content: sb.to_string(), is_stub: false })
+}
+
+///|
+pub(all) struct RetptrImportInfo {
+  import_module : String
+  func_name : String
+} derive(Show)
+
+///|
+/// Detect all imported functions that use retptr (return pointer) ABI.
+/// These need WAT patching when creating a component from a core wasm module.
+pub fn Generator::detect_retptr_imports(
+  self : Generator,
+) -> Array[RetptrImportInfo] {
+  let result : Array[RetptrImportInfo] = []
+  let world = self.resolve.worlds[self.world_id]
+  for _, item in world.imports {
+    match item {
+      Interface(iref) => {
+        let iface = self.resolve.interfaces[iref.id]
+        let pkg = iface.pkg.map(fn(pid) { self.resolve.packages[pid] })
+        let unnamed = "unnamed"
+        let iface_name = iface.name.unwrap_or(unnamed)
+        let import_module = match pkg {
+          Some(p) => self.interface_id(p, iface_name)
+          None => iface_name
+        }
+        for _, func in iface.functions {
+          if self.import_needs_retptr(func) {
+            result.push({ import_module, func_name: func.name })
+          }
+        }
+      }
+      Function(func) =>
+        if self.import_needs_retptr(func) {
+          let import_module = match world.pkg {
+            Some(pkg_id) => {
+              let pkg = self.resolve.packages[pkg_id]
+              self.interface_id(pkg, world.name)
+            }
+            None => world.name
+          }
+          result.push({ import_module, func_name: func.name })
+        }
+      _ => ()
+    }
+  }
+  result
 }
