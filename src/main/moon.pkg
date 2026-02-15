@@ -13,5 +13,7 @@ import {
 
 options(
   "is-main": true,
+  "native-stub": [ "ffi_native.c" ],
   "supported-targets": [ "native" ],
+  targets: { "main_ffi_native.mbt": [ "native" ] },
 )
