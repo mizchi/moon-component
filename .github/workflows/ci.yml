@@ -28,6 +28,8 @@ jobs:
         run: |
           moon build --target native --release
           cp _build/native/release/build/src/main/main.exe ~/.local/bin/moon-component
+
+      # hello example (export-only, simple)
       - name: Generate hello example
         run: moon-component generate examples/hello/wit/world.wit -p hello -o examples/hello
       - name: Build hello wasm
@@ -35,5 +37,16 @@ jobs:
         working-directory: examples/hello
       - name: Componentize hello
         run: moon-component componentize examples/hello/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/hello/wit -o /tmp/hello.component.wasm
-      - name: Verify component WIT
+      - name: Verify hello component WIT
         run: wasm-tools component wit /tmp/hello.component.wasm
+
+      # wasi-cli example (multi-package imports, retptr patching)
+      - name: Generate wasi-cli example
+        run: moon-component generate examples/wasi-cli/wit/world.wit --wit examples/wasi-cli/wit -p wasi-cli-demo -o examples/wasi-cli
+      - name: Build wasi-cli wasm
+        run: moon build --target wasm --release
+        working-directory: examples/wasi-cli
+      - name: Componentize wasi-cli
+        run: moon-component componentize examples/wasi-cli/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/wasi-cli/wit -o /tmp/wasi-cli.component.wasm
+      - name: Verify wasi-cli component WIT
+        run: wasm-tools component wit /tmp/wasi-cli.component.wasm
