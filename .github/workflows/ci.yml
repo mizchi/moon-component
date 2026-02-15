@@ -17,6 +17,7 @@ jobs:
         run: |
           curl -LO https://github.com/bytecodealliance/wasm-tools/releases/download/v1.228.0/wasm-tools-1.228.0-x86_64-linux.tar.gz
           tar xzf wasm-tools-1.228.0-x86_64-linux.tar.gz
+          mkdir -p ~/.local/bin
           cp wasm-tools-1.228.0-x86_64-linux/wasm-tools ~/.local/bin/
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Moon version
