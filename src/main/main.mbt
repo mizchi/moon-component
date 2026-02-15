@@ -70,10 +70,12 @@ async fn main {
     } else if args[i] == "--world" && i + 1 < args.length() {
       world_name = Some(args[i + 1])
       i = i + 2
-    } else if args[i] == "--out-dir" && i + 1 < args.length() {
+    } else if (args[i] == "--out-dir" || args[i] == "-o") &&
+      i + 1 < args.length() {
       out_dir = Some(args[i + 1])
       i = i + 2
-    } else if args[i] == "--project-name" && i + 1 < args.length() {
+    } else if (args[i] == "--project-name" || args[i] == "-p") &&
+      i + 1 < args.length() {
       project_name = Some(args[i + 1])
       i = i + 2
     } else if args[i] == "--gen-dir" && i + 1 < args.length() {

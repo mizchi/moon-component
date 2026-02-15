@@ -15,10 +15,14 @@ jobs:
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - name: Moon version
         run: moon version --all
-      - uses: dtolnay/rust-toolchain@stable
       - run: moon update
-      - run: cargo build --manifest-path tools/moon-component/Cargo.toml
-      - run: cargo run --quiet --manifest-path tools/moon-component/Cargo.toml -- generate examples/wasi-cli/wit/world.wit -o examples/wasi-cli
+      - name: Build native CLI
+        run: |
+          moon build --target native --release
+          mkdir -p ~/.local/bin
+          cp _build/native/release/build/src/main/main.exe ~/.local/bin/moon-component
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: moon-component generate examples/wasi-cli/wit/world.wit -o examples/wasi-cli
       - run: moon build --target wasm --release impl
         working-directory: examples/wasi-cli
-      - run: cargo run --quiet --manifest-path tools/moon-component/Cargo.toml -- componentize examples/wasi-cli/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/wasi-cli/wit -o /tmp/wasi-cli.component.wasm
+      - run: moon-component componentize examples/wasi-cli/_build/wasm/release/build/impl/impl.wasm --wit-dir examples/wasi-cli/wit -o /tmp/wasi-cli.component.wasm
