@@ -647,6 +647,7 @@ fn Generator::lifted_param_name(
 ) -> String {
   match ty {
     String_ => name
+    Bool => name + " != 0"
     U8 | U16 | U32 => name + ".reinterpret_as_uint()"
     U64 => name + ".reinterpret_as_uint64()"
     Char => name + ".unsafe_to_char()"
