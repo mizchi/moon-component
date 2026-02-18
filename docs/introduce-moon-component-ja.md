@@ -12,8 +12,8 @@ MoonBit で WebAssembly Component を作る/使うための CLI。
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
 # Build from source (MoonBit)
-moon build --target native --release -C src/main
-export PATH="$PWD/_build/native/release/build/src/main:$PATH"
+moon build --target native --release src/cmd/moon-component
+export PATH="$PWD/_build/native/release/build/src/cmd/moon-component:$PATH"
 ```
 
 注意:

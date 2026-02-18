@@ -585,8 +585,11 @@ fn Generator::load_or_generate_moon_mod(
     None => "moon.mod.json"
   }
 
-  // Try to read existing moon.mod.json
-  let content = @fs.read_file_to_string(path) catch { _ => "" }
+  // Use moon_mod_content from opts if provided, otherwise empty
+  let content = match self.opts.moon_mod_content {
+    Some(c) => c
+    None => ""
+  }
   let existing_name : String = if content.length() == 0 {
     ""
   } else {

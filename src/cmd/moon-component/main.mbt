@@ -119,9 +119,15 @@ async fn main {
   }
   let input : @resolve.ResolveInput = if is_json {
     // Read and parse JSON
-    let json_str = @fs.read_file_to_string(input_path) catch {
+    let json_data = @fs.read_file(input_path) catch {
       _ => {
         println("Error reading file: " + input_path)
+        abort("exit")
+      }
+    }
+    let json_str = json_data.text() catch {
+      _ => {
+        println("Error decoding file: " + input_path)
         abort("exit")
       }
     }
@@ -159,6 +165,22 @@ async fn main {
     }
   }
 
+  // Read existing moon.mod.json if available
+  let moon_mod_content : String? = {
+    let mod_path = match out_dir {
+      Some(out) => out + "/moon.mod.json"
+      None => "moon.mod.json"
+    }
+    let exists = @fs.exists(mod_path)
+    if exists {
+      let data = @fs.read_file(mod_path) catch { _ => abort("exit") }
+      let text = data.text() catch { _ => abort("exit") }
+      Some(text)
+    } else {
+      None
+    }
+  }
+
   // Generate code
   let opts : @codegen.GeneratorOpts = {
     trait_exports: true,
@@ -172,6 +194,7 @@ async fn main {
     wkg_version,
     pkg_format,
     use_js_string_builtins,
+    moon_mod_content,
   }
   let gen = @codegen.Generator::new(input.resolve, input.world_id, opts)
   let files = gen.generate()
@@ -184,7 +207,8 @@ async fn main {
     // Check if we should write the file
     let should_write = if file.is_stub {
       // Skip stub if file already exists
-      not(file_exists(file.path))
+      let exists = @fs.exists(file.path)
+      not(exists)
     } else {
       true
     }
@@ -229,7 +253,7 @@ async fn main {
 }
 
 ///|
-fn cmd_plug(args : Array[String]) -> Unit {
+async fn cmd_plug(args : Array[String]) -> Unit {
   if args.length() < 3 {
     plug_usage()
     @sys.exit(1)
@@ -274,21 +298,22 @@ fn cmd_plug(args : Array[String]) -> Unit {
       @sys.exit(1)
     }
   }
-  let socket_bytes = @fs.read_file_to_bytes(socket_path) catch {
-    e => {
-      println("Error reading socket: " + e.to_string())
+  let socket_data = @fs.read_file(socket_path) catch {
+    @fs.IOError(msg) => {
+      println("Error reading socket: " + msg)
       abort("exit")
     }
   }
+  let socket_bytes = socket_data.binary()
   let plug_bytes : Array[Bytes] = []
   for path in plugs {
-    let bytes = @fs.read_file_to_bytes(path) catch {
-      e => {
-        println("Error reading plug: " + e.to_string())
+    let data = @fs.read_file(path) catch {
+      @fs.IOError(msg) => {
+        println("Error reading plug: " + msg)
         abort("exit")
       }
     }
-    plug_bytes.push(bytes)
+    plug_bytes.push(data.binary())
   }
   if socket_wit_path is Some(path) {
     let socket_res = match @wit.resolve_path(path) {
@@ -327,13 +352,7 @@ fn cmd_plug(args : Array[String]) -> Unit {
   match result {
     Ok(bytes) =>
       match output_path {
-        Some(out) =>
-          @fs.write_bytes_to_file(out, bytes) catch {
-            e => {
-              println("Error writing output: " + e.to_string())
-              @sys.exit(1)
-            }
-          }
+        Some(out) => write_file_bytes(out, bytes)
         None => ()
       }
     Err(e) => {
@@ -344,7 +363,7 @@ fn cmd_plug(args : Array[String]) -> Unit {
 }
 
 ///|
-fn cmd_compose_wac(args : Array[String]) -> Unit {
+async fn cmd_compose_wac(args : Array[String]) -> Unit {
   if args.length() < 3 {
     println(
       "Usage: moon-component compose <composition.wac> -o <out.wasm> [--best-effort] [--dce]",
@@ -384,15 +403,22 @@ fn cmd_compose_wac(args : Array[String]) -> Unit {
 }
 
 ///|
-fn cmd_wac_parse(args : Array[String]) -> Unit {
+async fn cmd_wac_parse(args : Array[String]) -> Unit {
   if args.length() < 3 {
     println("Usage: moon-component wac-parse <composition.wac>")
     @sys.exit(1)
   }
   let input_path = args[2]
-  let source = @fs.read_file_to_string(input_path) catch {
+  let data = @fs.read_file(input_path) catch {
     _ => {
       println("Error reading file: " + input_path)
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  let source = data.text() catch {
+    _ => {
+      println("Error decoding file: " + input_path)
       @sys.exit(1)
       abort("exit")
     }
@@ -408,7 +434,7 @@ fn cmd_wac_parse(args : Array[String]) -> Unit {
 }
 
 ///|
-fn cmd_wac_resolve(args : Array[String]) -> Unit {
+async fn cmd_wac_resolve(args : Array[String]) -> Unit {
   if args.length() < 3 {
     println(
       "Usage: moon-component wac-resolve <composition.wac> [--best-effort]",
@@ -426,9 +452,16 @@ fn cmd_wac_resolve(args : Array[String]) -> Unit {
       i = i + 1
     }
   }
-  let source = @fs.read_file_to_string(input_path) catch {
+  let data = @fs.read_file(input_path) catch {
     _ => {
       println("Error reading file: " + input_path)
+      @sys.exit(1)
+      abort("exit")
+    }
+  }
+  let source = data.text() catch {
+    _ => {
+      println("Error decoding file: " + input_path)
       @sys.exit(1)
       abort("exit")
     }
@@ -453,7 +486,7 @@ fn plug_usage() -> Unit {
 }
 
 ///|
-fn cmd_targets(args : Array[String]) -> Unit {
+async fn cmd_targets(args : Array[String]) -> Unit {
   if args.length() < 4 {
     targets_usage()
     @sys.exit(1)
@@ -470,13 +503,14 @@ fn cmd_targets(args : Array[String]) -> Unit {
       i = i + 1
     }
   }
-  let component_bytes = @fs.read_file_to_bytes(component_path) catch {
-    e => {
-      println("Error reading component: " + e.to_string())
+  let component_data = @fs.read_file(component_path) catch {
+    @fs.IOError(msg) => {
+      println("Error reading component: " + msg)
       @sys.exit(1)
       abort("exit")
     }
   }
+  let component_bytes = component_data.binary()
   let resolved_result : Result[@wit.ResolveInput, @wit.ParseError] = match
     world_name {
     Some(name) => @wit.resolve_path(wit_path, world=name)
@@ -591,40 +625,28 @@ fn strip_prefix(path : String, prefix : String) -> String {
 }
 
 ///|
-fn file_exists(path : String) -> Bool {
-  // Try to read file, if it fails, file doesn't exist
-  try {
-    let _ = @fs.read_file_to_string(path)
-    true
-  } catch {
-    _ => false
-  }
-}
-
-///|
-fn write_file(path : String, content : String) -> Unit {
-  // Ensure directory exists
+async fn write_file(path : String, content : String) -> Unit {
   let dir = dirname(path)
   if dir.length() > 0 {
-    mkdir_p(dir)
+    @fs.mkdir(dir, permission=0o755, recursive=true) catch { _ => () }
   }
-  @fs.write_string_to_file(path, content) catch {
-    e => {
-      println("Error writing file: " + path + " - " + e.to_string())
+  @fs.write_file(path, content) catch {
+    @fs.IOError(msg) => {
+      println("Error writing file: " + path + " - " + msg)
       abort("exit")
     }
   }
 }
 
 ///|
-fn write_file_bytes(path : String, content : Bytes) -> Unit {
+async fn write_file_bytes(path : String, content : Bytes) -> Unit {
   let dir = dirname(path)
   if dir.length() > 0 {
-    mkdir_p(dir)
+    @fs.mkdir(dir, permission=0o755, recursive=true) catch { _ => () }
   }
-  @fs.write_bytes_to_file(path, content) catch {
-    e => {
-      println("Error writing file: " + path + " - " + e.to_string())
+  @fs.write_file(path, content) catch {
+    @fs.IOError(msg) => {
+      println("Error writing file: " + path + " - " + msg)
       abort("exit")
     }
   }
@@ -647,35 +669,6 @@ fn dirname(path : String) -> String {
       result.write_char(chars[i])
     }
     result.to_string()
-  }
-}
-
-///|
-fn mkdir_p(dir : String) -> Unit {
-  // Split by / and create each directory
-  let parts : Array[String] = dir
-    .split("/")
-    .map(fn(sv) { sv.to_string() })
-    .collect()
-  // Handle absolute paths (starting with /)
-  let starts_with_slash = dir.length() > 0 && dir.to_array()[0] == '/'
-  let mut current = if starts_with_slash { "" } else { "" }
-  for part in parts {
-    if part.length() == 0 {
-      continue
-    }
-    current = if current.length() == 0 {
-      if starts_with_slash {
-        "/" + part
-      } else {
-        part
-      }
-    } else {
-      current + "/" + part
-    }
-    @fs.create_dir(current) catch {
-      _ => () // Directory may already exist
-    }
   }
 }
 

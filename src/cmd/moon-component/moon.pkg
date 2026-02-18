@@ -1,7 +1,8 @@
 import {
   "moonbitlang/core/json",
-  "moonbitlang/x/fs" @fs,
-  "moonbitlang/x/sys" @sys,
+  "mizchi/x/fs" @fs,
+  "mizchi/x/sys" @sys,
+  "mizchi/x/process" @process,
   "mizchi/wit" @wit,
   "mizchi/moon_component/src" @codegen,
   "mizchi/moon_component/src/resolve" @resolve,
@@ -12,8 +13,6 @@ import {
 }
 
 options(
-  "is-main": true,
-  "native-stub": [ "ffi_native.c" ],
-  "supported-targets": [ "native" ],
-  targets: { "main_ffi_native.mbt": [ "native" ] },
+  is_main: true,
+  supported_targets: [ "native", "js" ],
 )

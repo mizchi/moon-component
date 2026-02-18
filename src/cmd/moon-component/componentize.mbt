@@ -2,7 +2,7 @@
 // Handles retptr import patching automatically
 
 ///|
-fn cmd_componentize(args : Array[String]) -> Unit {
+async fn cmd_componentize(args : Array[String]) -> Unit {
   // Parse arguments
   let mut input_path : String? = None
   let mut wit_path : String? = None
@@ -111,17 +111,24 @@ fn cmd_componentize(args : Array[String]) -> Unit {
     }
 
     // Read WAT, apply patches
-    let wat_content = @fs.read_file_to_string(wat_path) catch {
-      e => {
-        println("Error reading WAT: " + e.to_string())
+    let wat_data = @fs.read_file(wat_path) catch {
+      @fs.IOError(msg) => {
+        println("Error reading WAT: " + msg)
+        @sys.exit(1)
+        abort("exit")
+      }
+    }
+    let wat_content = wat_data.text() catch {
+      _ => {
+        println("Error decoding WAT file")
         @sys.exit(1)
         abort("exit")
       }
     }
     let patched = patch_wat(wat_content, retptr_imports)
-    @fs.write_string_to_file(patched_wat_path, patched) catch {
-      e => {
-        println("Error writing patched WAT: " + e.to_string())
+    @fs.write_file(patched_wat_path, patched) catch {
+      @fs.IOError(msg) => {
+        println("Error writing patched WAT: " + msg)
         @sys.exit(1)
         abort("exit")
       }
@@ -229,6 +236,25 @@ fn componentize_usage() -> Unit {
   println(
     "Usage: moon-component componentize <core.wasm> --wit <wit-dir> [--world <name>] -o <output.wasm>",
   )
+}
+
+///|
+fn shell_quote(s : String) -> String {
+  let buf : Array[Char] = ['\'']
+  for ch in s {
+    if ch == '\'' {
+      buf..push('\'')..push('\\')..push('\'').push('\'')
+    } else {
+      buf.push(ch)
+    }
+  }
+  buf.push('\'')
+  String::from_array(buf)
+}
+
+///|
+async fn run_shell_cmd(cmd : String) -> Int {
+  @process.run("sh", ["-c", cmd])
 }
 
 ///|

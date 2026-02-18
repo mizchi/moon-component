@@ -23,6 +23,7 @@ pub(all) struct GeneratorOpts {
   wkg_version : String
   pkg_format : PkgFormat
   use_js_string_builtins : Bool
+  moon_mod_content : String?
 } derive(Show)
 
 ///|
@@ -39,6 +40,7 @@ pub fn GeneratorOpts::default() -> GeneratorOpts {
     wkg_version: "0.1.0",
     pkg_format: Json,
     use_js_string_builtins: false,
+    moon_mod_content: None,
   }
 }
 

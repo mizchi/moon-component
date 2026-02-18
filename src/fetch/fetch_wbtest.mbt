@@ -1,19 +1,20 @@
 ///|
-/// Test to_oci_pkg conversion
-test "to_oci_pkg" {
+/// Test WkgRegistry URL generation used by fetch
+test "wit_url_generation" {
+  let registry = @wkg.WkgRegistry::default()
   let pkg : @resolve.PackageName = {
     ns: "wasi",
     name: "http",
     version: Some("0.2.0"),
   }
-  guard to_oci_pkg(pkg) is Some(oci_pkg) else { fail("expected Some") }
-  inspect(oci_pkg.to_string(), content="wasi:http")
+  let url = registry.wit_url(pkg)
+  inspect(url, content="https://wa.dev/v1/wasi/http/0.2.0/wit")
 }
 
 ///|
-/// Test to_oci_pkg without version
-test "to_oci_pkg_no_version" {
+test "wit_url_no_version" {
+  let registry = @wkg.WkgRegistry::default()
   let pkg : @resolve.PackageName = { ns: "wasi", name: "cli", version: None }
-  guard to_oci_pkg(pkg) is Some(oci_pkg) else { fail("expected Some") }
-  inspect(oci_pkg.to_string(), content="wasi:cli")
+  let url = registry.wit_url(pkg)
+  inspect(url, content="https://wa.dev/v1/wasi/cli/wit")
 }

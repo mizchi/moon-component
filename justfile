@@ -2,18 +2,18 @@
 # Usage: just <command> [args]
 
 moon_component := "moon-component"
-moon_component_bin := "_build/native/release/build/src/main/main.exe"
+moon_component_bin := "_build/native/release/build/src/cmd/moon-component/moon-component.exe"
 
 default:
     @just --list
 
 # Build the MoonBit native CLI
 build-native:
-    moon build --target native --release -C src/main
+    moon build --target native --release src/cmd/moon-component
 
 # Build the MoonBit JS CLI
 build-js:
-    moon build --target js --release -C src/main
+    moon build --target js --release src/cmd/moon-component
 
 # Package native binary (os arch)
 dist-package os arch:
@@ -59,7 +59,7 @@ fmt:
 info:
     moon info
 
-# Check code (native target required for oci_wasm dependency)
+# Check code
 check:
     moon check --target native
 
@@ -107,7 +107,7 @@ example-core-module-build:
 
 # Compose core-module plug example
 example-core-module-compose: example-core-module-build
-    moon run src/main -- plug examples/core-module/socket.wasm --plug examples/core-module/plug.wasm -o examples/core-module/composed.wasm
+    moon run src/cmd/moon-component -- plug examples/core-module/socket.wasm --plug examples/core-module/plug.wasm -o examples/core-module/composed.wasm
     wasm-tools validate examples/core-module/composed.wasm
 
 # Build Zig host

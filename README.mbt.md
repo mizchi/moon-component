@@ -9,10 +9,10 @@ WebAssembly Component Model tooling for MoonBit.
 curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
 
 # Build from source (MoonBit)
-moon build --target native --release -C src/main
+moon build --target native --release src/cmd/moon-component
 
 # Add to PATH (optional)
-export PATH="$PWD/_build/native/release/build/src/main:$PATH"
+export PATH="$PWD/_build/native/release/build/src/cmd/moon-component:$PATH"
 ```
 
 Note:

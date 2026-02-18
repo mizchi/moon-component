@@ -24,11 +24,11 @@ jobs:
         run: moon version --all
       - run: moon update
       - name: Run unit tests
-        run: moon test
+        run: moon test --target native
       - name: Build native CLI
         run: |
-          moon build --target native --release
-          cp _build/native/release/build/src/main/main.exe ~/.local/bin/moon-component
+          moon build --target native --release src/cmd/moon-component
+          cp _build/native/release/build/src/cmd/moon-component/moon-component.exe ~/.local/bin/moon-component
 
       # hello example (export-only, simple)
       - name: Generate hello example

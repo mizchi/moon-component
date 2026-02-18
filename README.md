@@ -1,136 +1,322 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/static/image/logo-dark.png">
-    <img alt="spin logo" src="./docs/static/image/logo.png" width="300" height="128">
-  </picture>
-  <p>Spin is a framework for building, deploying, and running fast, secure, and composable cloud microservices with WebAssembly.</p>
-      <a href="https://github.com/spinframework/spin/actions/workflows/build.yml"><img src="https://github.com/spinframework/spin/actions/workflows/build.yml/badge.svg" alt="build status" /></a>
-      <a href="https://cloud-native.slack.com/archives/C089NJ9G1V0"><img alt="Slack" src="https://img.shields.io/badge/slack-spin-green.svg?logo=slack"></a>
-      <a href="https://www.bestpractices.dev/projects/10373"><img src="https://www.bestpractices.dev/projects/10373/badge"></a>
-</div>
+# mizchi/moon_component
 
-## What is Spin?
+WebAssembly Component Model tooling for MoonBit.
 
-Spin is an open source framework for building and running fast, secure, and
-composable cloud microservices with WebAssembly. It aims to be the easiest way
-to get started with WebAssembly microservices, and takes advantage of the latest
-developments in the
-[WebAssembly component model](https://github.com/WebAssembly/component-model)
-and [Wasmtime](https://wasmtime.dev/) runtime.
-
-Spin offers a simple CLI that helps you create, distribute, and execute
-applications, and in the next sections we will learn more about Spin
-applications and how to get started.
-
-## Getting started
-
-See the [Install Spin](https://spinframework.dev/install) page of the [Spin documentation](https://spinframework.dev) for a detailed
-guide on installing and configuring Spin, but in short run the following commands:
-```bash
-curl -fsSL https://spinframework.dev/downloads/install.sh | bash
-sudo mv ./spin /usr/local/bin/spin
-```
-
-Alternatively, you could [build Spin from source](https://spinframework.dev/contributing-spin).
-
-To get started writing apps, follow the [quickstart guide](https://spinframework.dev/quickstart/),
-and then follow the
-[Rust](https://spinframework.dev/rust-components/), [JavaScript](https://spinframework.dev/javascript-components), [Python](https://spinframework.dev/python-components), or [Go](https://spinframework.dev/go-components/)
-language guides, and the [guide on writing Spin applications](https://spinframework.dev/writing-apps/).
-
-## Language support
-
-WebAssembly is a language-agnostic runtime: you can build WebAssembly components from a variety of source languages. Spin SDKs are available for several languages, including:
-
-* JavaScript: https://github.com/spinframework/spin-js-sdk
-* Rust: https://crates.io/crates/spin-sdk
-* Go: https://pkg.go.dev/github.com/fermyon/spin/sdk/go/v2
-* Python: https://github.com/spinframework/spin-python-sdk
-* Zig: https://github.com/dasimmet/zig-spin (third party)
-* Moonbit: https://github.com/gmlewis/spin-moonbit-sdk (third party)
-
-> The Spin framework team supports the JavaScript, Rust, Go, and Python SDKs. Other language integrations are supported by their authors, and we're grateful to them for their work!
-
-## Usage
-
-Below is an example of using the `spin` CLI to create a new Spin application.  To run the example you will need to install the `wasm32-wasip1` target for Rust.
+## Installation
 
 ```bash
-$ rustup target add wasm32-wasip1
+# Prebuilt binary (macOS/Linux)
+curl -fsSL https://raw.githubusercontent.com/mizchi/moon-component/main/install.sh | bash
+
+# Build from source (MoonBit)
+moon build --target native --release src/cmd/moon-component
+
+# Add to PATH (optional)
+export PATH="$PWD/_build/native/release/build/src/cmd/moon-component:$PATH"
+
+# Or install to ~/.local/bin
+just install-native
 ```
 
-First, run the `spin new` command to create a Spin application from a template.
-```bash
-# Create a new Spin application named 'hello-rust' based on the Rust http template, accepting all defaults
-$ spin new --accept-defaults -t http-rust hello-rust
-```
-Running the `spin new` command created a `hello-rust` directory with all the necessary files for your application. Change to the `hello-rust` directory and build the application with `spin build`, then run it locally with `spin up`:
+Note:
+- prebuilt macOS binaries are arm64 only. macOS x64 requires build from source.
+- Requires [MoonBit](https://www.moonbitlang.com/) toolchain and [wasm-tools](https://github.com/bytecodealliance/wasm-tools) for componentize.
 
-```bash
-# Compile to Wasm by executing the `build` command.
-$ spin build
-Executing the build command for component hello-rust: cargo build --target wasm32-wasip1 --release
-    Finished release [optimized] target(s) in 0.03s
-Successfully ran the build command for the Spin components.
-
-# Run the application locally.
-$ spin up
-Logging component stdio to ".spin/logs/"
-
-Serving http://127.0.0.1:3000
-Available Routes:
-  hello-rust: http://127.0.0.1:3000 (wildcard)
-```
-
-That's it! Now that the application is running, use your browser or cURL in another shell to try it out:
+## Quick Start
 
 ```bash
-# Send a request to the application.
-$ curl -i 127.0.0.1:3000
-HTTP/1.1 200 OK
-content-type: text/plain
-transfer-encoding: chunked
-date: Sun, 02 Mar 2025 20:09:11 GMT
+# Generate bindings from WIT
+moon-component generate wit/world.wit -o ./my-component -p my/project
 
-Hello World!
+# Build wasm module
+moon build --target wasm --release --directory my-component
+
+# Create component
+moon-component componentize my-component/_build/wasm/release/build/impl/impl.wasm \
+  --wit-dir my-component/wit -o my-component.wasm
 ```
 
-You can make the app do more by editting the `src/lib.rs` file in the `hello-rust` directory using your favorite editor or IDE. To learn more about writing Spin applications see [Writing Applications](https://spinframework.dev/writing-apps) in the Spin documentation.  To learn how to publish and distribute your application see the [Publishing and Distribution](https://spinframework.dev/distributing-apps) guide in the Spin documentation.
+## Commands
 
-## Language Support for Spin Features
+### `moon-component generate <wit-path>`
 
-The table below summarizes the [feature support](https://spinframework.dev/language-support-overview) in each of the language SDKs.
+Generate MoonBit bindings from WIT files.
 
-| Feature | Rust SDK Supported? | TypeScript SDK Supported? | Python SDK Supported? | Tiny Go SDK Supported? | C# SDK Supported? |
-|-----|-----|-----|-----|-----|-----|
-| **Triggers** |
-| [HTTP](https://spinframework.dev/http-trigger) | Supported | Supported | Supported | Supported | Supported |
-| [Redis](https://spinframework.dev/redis-trigger) | Supported | Supported | Supported | Supported | Not Supported |
-| **APIs** |
-| [Outbound HTTP](https://spinframework.dev/rust-components.md#sending-outbound-http-requests) | Supported | Supported | Supported | Supported | Supported |
-| [Configuration Variables](https://spinframework.dev/variables) | Supported | Supported | Supported | Supported | Supported |
-| [Key Value Storage](https://spinframework.dev/kv-store-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [SQLite Storage](https://spinframework.dev/sqlite-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| [MySQL](https://spinframework.dev/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Not Supported |
-| [PostgreSQL](https://spinframework.dev/rdbms-storage#using-mysql-and-postgresql-from-applications) | Supported | Supported | Not Supported | Supported | Supported |
-| [Outbound Redis](https://spinframework.dev/rust-components.md#storing-data-in-redis-from-rust-components) | Supported | Supported | Supported | Supported | Supported |
-| [Serverless AI](https://spinframework.dev/serverless-ai-api-guide) | Supported | Supported | Supported | Supported | Not Supported |
-| **Extensibility** |
-| [Authoring Custom Triggers](https://spinframework.dev/extending-and-embedding) | Supported | Not Supported | Not Supported | Not Supported | Not Supported |
+```bash
+moon-component generate wit/world.wit -o ./component -p my/project
+```
 
-## Getting Involved and Contributing
+Options:
+- `-o, --out-dir <dir>` - Output directory (default: stdout)
+- `-p, --project-name <name>` - Project name for imports
+- `--gen-dir <dir>` - Generated code directory (default: `gen`)
+- `--impl-dir <dir>` - Implementation directory (default: `impl`)
+- `--no-impl` - Don't generate impl files
+- `--wkg` - Generate wkg.toml for wa.dev deployment
+- `--wite` - Generate wite.config.jsonc for wite pipeline
+- `--world <name>` - World to generate bindings for
+- `--pkg-format <fmt>` - Package format: `json` (moon.pkg.json) or `dsl` (moon.pkg)
+- `--js-string-builtins` - Enable JS String Builtins (wasm-gc only)
 
-We are delighted that you are interested in making Spin better! Thank you!
+### `moon-component componentize <wasm-path>`
 
-Each Monday at 2:30pm UTC (odd weeks) and 9:00pm UTC (even weeks), we meet to discuss Spin issues, roadmap, and ideas in our Spin Project Meetings. Link to the meeting can be found in the Spin Project Meeting agenda below.
+Create a WebAssembly component from a built core wasm module. Automatically detects and patches retptr imports.
 
-The [Spin Project Meeting agenda](https://docs.google.com/document/d/1EG392gb8Eg-1ZEPDy18pgFZvMMrdAEybpCSufFXoe00/edit?usp=sharing) is a public document. The document contains a rolling agenda with the date and time of each meeting, the Zoom link, and topics of discussion for the day. You will also find the meeting minutes for each meeting and the link to the recording. If you have something you would like to demo or discuss at the project meeting, we encourage you to add it to the agenda.
+```bash
+moon build --target wasm --release
+moon-component componentize _build/wasm/release/build/impl/impl.wasm \
+  --wit-dir wit -o component.wasm
+```
 
-You can find the contributing guide [here](https://spinframework.dev/contributing-spin).
+Options:
+- `--wit <path>` - WIT directory (required)
+- `--world <name>` - World name
+- `-o <path>` - Output path (required)
 
-## Stay in Touch
+### `moon-component fetch`
 
-Follow us on Twitter: [@spinframework](https://twitter.com/spinframework)
+Fetch WIT packages from [wa.dev](https://wa.dev) registry via HTTP.
 
-You can join the Spin community in the [Spin CNCF Slack channel](https://cloud-native.slack.com/archives/C089NJ9G1V0) where you can ask questions, get help, and show off the cool things you are doing with Spin!
+```bash
+# Fetch specific packages
+moon-component fetch wasi:http@0.2.0
+moon-component fetch wasi:cli@0.2.0 wasi:io@0.2.0
 
+# Auto-detect and fetch all dependencies from WIT
+moon-component fetch --from-wit wit/world.wit --wit-dir wit
+```
+
+Options:
+- `--registry <host>` - Registry host (default: wa.dev)
+- `--wit-dir <dir>` - WIT output directory (default: wit)
+- `--from-wit <path>` - Resolve WIT and fetch all dependencies
+
+### `moon-component plug`
+
+Plug components together (socket + plugs).
+
+```bash
+moon-component plug socket.wasm --plug plug.wasm -o composed.wasm
+```
+
+### `moon-component compose`
+
+Compose components using WAC (WebAssembly Composition) syntax.
+
+```bash
+moon-component compose composition.wac -o composed.wasm
+```
+
+### `moon-component targets`
+
+Validate component targets against WIT definitions.
+
+```bash
+moon-component targets component.wasm wit/ --world my-world
+```
+
+## Generated Directory Structure
+
+```
+component/
+├── moon.mod.json
+├── wit/
+│   └── world.wit          # WIT definition
+├── gen/                   # Generated code (regenerated)
+│   └── cabi/
+│       ├── moon.pkg.json
+│       └── cabi.mbt       # Canonical ABI helpers
+└── impl/                  # Implementation (preserved)
+    ├── moon.pkg.json      # is-main: true
+    ├── bindings.mbt       # Generated FFI glue (regenerated)
+    └── impl.mbt           # User implementation (stub, preserved)
+```
+
+- `gen/` - Regenerated on each `generate` call
+- `impl/bindings.mbt` - Regenerated (FFI glue)
+- `impl/impl.mbt` - Preserved (user implementation stub)
+- `impl/moon.pkg.json` - Preserved (user can add imports)
+
+## Supported WIT Types
+
+| WIT Type | MoonBit Type | Notes |
+|----------|--------------|-------|
+| `bool` | `Bool` | |
+| `u8` | `Byte` | |
+| `u16`, `u32` | `UInt` | |
+| `u64` | `UInt64` | |
+| `s8`, `s16`, `s32` | `Int` | |
+| `s64` | `Int64` | |
+| `f32` | `Float` | |
+| `f64` | `Double` | |
+| `char` | `Char` | |
+| `string` | `String` | UTF-8 encoded |
+| `list<T>` | `Array[T]` | |
+| `option<T>` | `T?` | |
+| `result<T, E>` | `Result[T, E]` | |
+| `tuple<...>` | `(T1, T2, ...)` | |
+| `record` | `struct` | |
+| `variant` | `enum` | |
+| `enum` | `enum` | With `from_ordinal`/`ordinal` |
+| `flags` | `struct` (bitmask) | With `from_bits`/`to_bits` |
+| `resource` | `struct(Int)` | Handle-based (experimental) |
+
+## Resource Support (Experimental)
+
+Resource types are supported with the following constraints:
+
+For wasm-gc specifics, see `docs/wasm-gc-component-resources.md`.
+For Rust to MoonBit porting workflow, see `docs/rust-port.md`.
+
+### Constraints
+
+1. **Handle-based only**: Resources are represented as `i32` handles (indices into a handle table)
+2. **No borrow/own distinction**: Both `borrow<T>` and `own<T>` are treated identically as handles
+3. **No automatic lifetime management**: Manual cleanup required (no finalizers in wasm-gc yet)
+4. **MoonBit-side handle table**: Resource data is managed in MoonBit, not by the host
+
+### Example WIT
+
+```wit
+interface blob-store {
+  resource blob {
+    constructor(data: list<u8>);
+    size: func() -> u32;
+    read: func(offset: u32, len: u32) -> list<u8>;
+  }
+
+  create-blob: func(data: list<u8>) -> own<blob>;
+  get-blob-size: func(b: borrow<blob>) -> u32;
+}
+```
+
+### Generated MoonBit Code
+
+```moonbit nocheck
+// Resource type (handle)
+
+///|
+pub(all) struct Blob(Int) derive(Show, Eq)
+
+// Exported functions with normalized names
+
+///|
+pub fn blob_new(data : Array[Byte]) -> Blob // [constructor]blob
+pub fn blob_size(this : Blob) -> UInt // [method]blob.size
+pub fn blob_read(this : Blob, offset : UInt, len : UInt) -> Array[Byte]
+pub fn create_blob(data : Array[Byte]) -> Blob
+pub fn get_blob_size(b : Blob) -> UInt
+```
+
+### Implementation Pattern (Copy-based)
+
+```moonbit nocheck
+// Handle table for resource storage
+
+///|
+let blob_table : Ref[Array[Array[Byte]]] = { val: [] }
+
+///|
+fn allocate_blob(data : Array[Byte]) -> @exports.Blob {
+  let handle = blob_table.val.length()
+  blob_table.val.push(data)
+  @exports.Blob(handle)
+}
+
+///|
+fn get_blob(handle : @exports.Blob) -> Array[Byte] {
+  blob_table.val[handle.0]
+}
+```
+
+### Why Handle-based?
+
+The [WebAssembly Component Model](https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md) specifies resources as opaque handles managed by a per-instance handle table. This approach:
+
+- Matches the Canonical ABI specification
+- Works with both wasm and wasm-gc targets
+- Allows future migration to native wasm-gc resource support when standardized
+
+See [Pre-Proposal: Wasm GC Support in Canonical ABI](https://github.com/WebAssembly/component-model/issues/525) for ongoing standardization work.
+
+## Project Structure
+
+```
+moon-component/
+├── src/                          # Codegen library (pure, no I/O)
+│   ├── resolve/                  # WIT resolve types
+│   ├── component/                # Component model operations
+│   ├── wkg/                      # WKG registry URL helpers
+│   ├── fetch/                    # HTTP-based WIT package fetching
+│   ├── cabi/                     # Canonical ABI utilities
+│   └── cmd/moon-component/       # CLI entry point
+├── examples/
+│   ├── hello/                    # Basic string export
+│   ├── wasi-cli/                 # WASIp2 wasi:cli/run
+│   └── tests/                    # Type test suites
+└── tools/                        # CI/dist scripts
+```
+
+## Development
+
+```bash
+# Install dependencies
+moon update
+
+# Check (native target)
+just check
+
+# Run library tests
+moon test -p mizchi/moon_component/src --target wasm-gc
+
+# Build CLI
+just build-native
+
+# Install to ~/.local/bin
+just install-native
+
+# Format
+just fmt
+```
+
+## Examples
+
+- `examples/hello` - Basic string export
+- `examples/wasi-cli` - WASIp2 wasi:cli/run with retptr patching
+- `examples/tests/types-test` - All primitive and container types (MoonBit)
+- `examples/tests/rust-guest` - Reference implementation (Rust wit-bindgen)
+- `examples/tests/zig-guest` - Zig implementation using C bindings
+- `examples/tests/resource-test` - Resource type (experimental)
+
+## Integration Tests
+
+Host implementations for testing generated WebAssembly modules:
+
+| Host | Language | Test Level | Notes |
+|------|----------|------------|-------|
+| `examples/host/rust` | Rust | Component | Full canonical ABI testing via wasmtime |
+| `examples/host/swift` | Swift | Core Wasm | Runtime testing via WasmKit (macOS 14+) |
+| `examples/host/scala` | Scala | Core Wasm | Runtime testing via Chicory (JDK 11+) |
+| `examples/host/zig` | Zig | Core Wasm | Binary format validation (export verification) |
+| `examples/host/jco` | JavaScript | Component | Node.js testing via jco transpiler |
+
+```bash
+# Run all integration tests (Zig, Swift)
+just test-integration
+
+# Run all integration tests including Scala and jco (requires sbt, pnpm)
+just test-integration-all
+
+# Run individual host tests
+just test-swift-host
+just test-scala-host
+just test-zig-host
+just test-jco-host
+
+# Rust host tests (optional)
+just -f justfile.rust test-rust-host
+```
+
+## License
+
+Apache-2.0
