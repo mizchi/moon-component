@@ -701,59 +701,55 @@ fn Generator::generate_value_lower(
           }
           let mca = if ok_align > err_align { ok_align } else { err_align }
           let payload_off = align_to(1, mca)
+          let ok_is_unit = self.is_unit_type(ok_ty)
+          let err_is_unit = self.is_unit_type(err_ty)
           sb.write_string(indent)
           sb.write_string("match ")
           sb.write_string(val_expr)
           sb.write_string(" {\n")
-          match ok_ty {
-            Some(t) => {
-              sb.write_string(indent)
-              sb.write_string("  Ok(payload) => {\n")
-              sb.write_string(indent)
-              sb.write_string("    ")
-              sb.write_string(disc_write_code(ptr_expr, "0", 2))
-              sb.write_string("\n")
-              self.generate_value_lower(
-                sb,
-                ptr_expr + " + " + payload_off.to_string(),
-                t,
-                "payload",
-                indent + "    ",
-              )
-              sb.write_string(indent)
-              sb.write_string("  }\n")
-            }
-            None => {
-              sb.write_string(indent)
-              sb.write_string("  Ok(_) => ")
-              sb.write_string(disc_write_code(ptr_expr, "0", 2))
-              sb.write_string("\n")
-            }
+          if ok_is_unit {
+            sb.write_string(indent)
+            sb.write_string("  Ok(_) => ")
+            sb.write_string(disc_write_code(ptr_expr, "0", 2))
+            sb.write_string("\n")
+          } else {
+            sb.write_string(indent)
+            sb.write_string("  Ok(payload) => {\n")
+            sb.write_string(indent)
+            sb.write_string("    ")
+            sb.write_string(disc_write_code(ptr_expr, "0", 2))
+            sb.write_string("\n")
+            self.generate_value_lower(
+              sb,
+              ptr_expr + " + " + payload_off.to_string(),
+              ok_ty.unwrap(),
+              "payload",
+              indent + "    ",
+            )
+            sb.write_string(indent)
+            sb.write_string("  }\n")
           }
-          match err_ty {
-            Some(t) => {
-              sb.write_string(indent)
-              sb.write_string("  Err(payload) => {\n")
-              sb.write_string(indent)
-              sb.write_string("    ")
-              sb.write_string(disc_write_code(ptr_expr, "1", 2))
-              sb.write_string("\n")
-              self.generate_value_lower(
-                sb,
-                ptr_expr + " + " + payload_off.to_string(),
-                t,
-                "payload",
-                indent + "    ",
-              )
-              sb.write_string(indent)
-              sb.write_string("  }\n")
-            }
-            None => {
-              sb.write_string(indent)
-              sb.write_string("  Err(_) => ")
-              sb.write_string(disc_write_code(ptr_expr, "1", 2))
-              sb.write_string("\n")
-            }
+          if err_is_unit {
+            sb.write_string(indent)
+            sb.write_string("  Err(_) => ")
+            sb.write_string(disc_write_code(ptr_expr, "1", 2))
+            sb.write_string("\n")
+          } else {
+            sb.write_string(indent)
+            sb.write_string("  Err(payload) => {\n")
+            sb.write_string(indent)
+            sb.write_string("    ")
+            sb.write_string(disc_write_code(ptr_expr, "1", 2))
+            sb.write_string("\n")
+            self.generate_value_lower(
+              sb,
+              ptr_expr + " + " + payload_off.to_string(),
+              err_ty.unwrap(),
+              "payload",
+              indent + "    ",
+            )
+            sb.write_string(indent)
+            sb.write_string("  }\n")
           }
           sb.write_string(indent)
           sb.write_string("}\n")

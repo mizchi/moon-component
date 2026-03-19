@@ -750,49 +750,45 @@ fn Generator::generate_result_lower_indirect(
               sb.write_string(result_size.to_string())
               sb.write_string(")\n")
               sb.write_string("  match result {\n")
-              match ok_ty {
-                Some(_) => {
-                  sb.write_string("    Ok(val) => {\n")
-                  sb.write_string("      ")
-                  sb.write_string(disc_write_code("retptr", "0", 2))
-                  sb.write_string(" // discriminant: Ok\n")
-                  self.generate_field_lower(
-                    sb,
-                    "retptr + " + payload_off.to_string(),
-                    ok_ty.unwrap(),
-                    "val",
-                  )
-                  sb.write_string("    }\n")
-                }
-                None => {
-                  sb.write_string("    Ok(_) => {\n")
-                  sb.write_string("      ")
-                  sb.write_string(disc_write_code("retptr", "0", 2))
-                  sb.write_string(" // discriminant: Ok\n")
-                  sb.write_string("    }\n")
-                }
+              let ok_is_unit = self.is_unit_type(ok_ty)
+              let err_is_unit = self.is_unit_type(err_ty)
+              if ok_is_unit {
+                sb.write_string("    Ok(_) => {\n")
+                sb.write_string("      ")
+                sb.write_string(disc_write_code("retptr", "0", 2))
+                sb.write_string(" // discriminant: Ok\n")
+                sb.write_string("    }\n")
+              } else {
+                sb.write_string("    Ok(val) => {\n")
+                sb.write_string("      ")
+                sb.write_string(disc_write_code("retptr", "0", 2))
+                sb.write_string(" // discriminant: Ok\n")
+                self.generate_field_lower(
+                  sb,
+                  "retptr + " + payload_off.to_string(),
+                  ok_ty.unwrap(),
+                  "val",
+                )
+                sb.write_string("    }\n")
               }
-              match err_ty {
-                Some(_) => {
-                  sb.write_string("    Err(e) => {\n")
-                  sb.write_string("      ")
-                  sb.write_string(disc_write_code("retptr", "1", 2))
-                  sb.write_string(" // discriminant: Err\n")
-                  self.generate_field_lower(
-                    sb,
-                    "retptr + " + payload_off.to_string(),
+              if err_is_unit {
+                sb.write_string("    Err(_) => {\n")
+                sb.write_string("      ")
+                sb.write_string(disc_write_code("retptr", "1", 2))
+                sb.write_string(" // discriminant: Err\n")
+                sb.write_string("    }\n")
+              } else {
+                sb.write_string("    Err(e) => {\n")
+                sb.write_string("      ")
+                sb.write_string(disc_write_code("retptr", "1", 2))
+                sb.write_string(" // discriminant: Err\n")
+                self.generate_field_lower(
+                  sb,
+                  "retptr + " + payload_off.to_string(),
                     err_ty.unwrap(),
                     "e",
                   )
                   sb.write_string("    }\n")
-                }
-                None => {
-                  sb.write_string("    Err(_) => {\n")
-                  sb.write_string("      ")
-                  sb.write_string(disc_write_code("retptr", "1", 2))
-                  sb.write_string(" // discriminant: Err\n")
-                  sb.write_string("    }\n")
-                }
               }
               sb.write_string("  }\n")
               sb.write_string("  retptr\n")
@@ -866,5 +862,21 @@ fn Generator::generate_result_lower_indirect(
         }
         _ => ()
       }
+  }
+}
+
+///|
+/// Check if a type represents unit (None or Tuple([]))
+fn Generator::is_unit_type(self : Generator, ty : @resolve.Type?) -> Bool {
+  match ty {
+    None => true
+    Some(Id(id)) => {
+      let typedef = self.resolve.types[id]
+      match typedef.kind {
+        Tuple(types) => types.length() == 0
+        _ => false
+      }
+    }
+    _ => false
   }
 }
