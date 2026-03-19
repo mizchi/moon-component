@@ -3,5 +3,6 @@ import {
 }
 
 options(
+  supported_targets: [ "native" ],
   "is-main": true,
 )
