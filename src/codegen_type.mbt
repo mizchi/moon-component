@@ -689,6 +689,75 @@ fn Generator::generate_value_lower(
           sb.write_string(indent)
           sb.write_string("}\n")
         }
+        Result(ok=ok_ty, err=err_ty) => {
+          // Lower result: discriminant + payload (same as 2-case variant)
+          let ok_align = match ok_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let err_align = match err_ty {
+            Some(t) => self.type_align(t)
+            None => 1
+          }
+          let mca = if ok_align > err_align { ok_align } else { err_align }
+          let payload_off = align_to(1, mca)
+          sb.write_string(indent)
+          sb.write_string("match ")
+          sb.write_string(val_expr)
+          sb.write_string(" {\n")
+          match ok_ty {
+            Some(t) => {
+              sb.write_string(indent)
+              sb.write_string("  Ok(payload) => {\n")
+              sb.write_string(indent)
+              sb.write_string("    ")
+              sb.write_string(disc_write_code(ptr_expr, "0", 2))
+              sb.write_string("\n")
+              self.generate_value_lower(
+                sb,
+                ptr_expr + " + " + payload_off.to_string(),
+                t,
+                "payload",
+                indent + "    ",
+              )
+              sb.write_string(indent)
+              sb.write_string("  }\n")
+            }
+            None => {
+              sb.write_string(indent)
+              sb.write_string("  Ok(_) => ")
+              sb.write_string(disc_write_code(ptr_expr, "0", 2))
+              sb.write_string("\n")
+            }
+          }
+          match err_ty {
+            Some(t) => {
+              sb.write_string(indent)
+              sb.write_string("  Err(payload) => {\n")
+              sb.write_string(indent)
+              sb.write_string("    ")
+              sb.write_string(disc_write_code(ptr_expr, "1", 2))
+              sb.write_string("\n")
+              self.generate_value_lower(
+                sb,
+                ptr_expr + " + " + payload_off.to_string(),
+                t,
+                "payload",
+                indent + "    ",
+              )
+              sb.write_string(indent)
+              sb.write_string("  }\n")
+            }
+            None => {
+              sb.write_string(indent)
+              sb.write_string("  Err(_) => ")
+              sb.write_string(disc_write_code(ptr_expr, "1", 2))
+              sb.write_string("\n")
+            }
+          }
+          sb.write_string(indent)
+          sb.write_string("}\n")
+        }
         _ => {
           sb.write_string(indent)
           sb.write_string("// TODO: lower nested type ")
