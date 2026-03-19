@@ -1,0 +1,17 @@
+{
+  "is-main": true,
+  "import": [
+    { "path": "moonbitlang/core/json" },
+    { "path": "mizchi/x/fs", "alias": "fs" },
+    { "path": "mizchi/x/sys", "alias": "sys" },
+    { "path": "mizchi/x/process", "alias": "process" },
+    { "path": "mizchi/wit", "alias": "wit" },
+    { "path": "mizchi/moon_component/src", "alias": "codegen" },
+    { "path": "mizchi/moon_component/src/resolve", "alias": "resolve" },
+    { "path": "mizchi/moon_component/src/component", "alias": "component" },
+    { "path": "mizchi/mwac/composer", "alias": "composer" },
+    { "path": "mizchi/moon_component/src/fetch", "alias": "fetch" },
+    { "path": "moonbitlang/async" }
+  ],
+  "supported-targets": ["native", "js"]
+}

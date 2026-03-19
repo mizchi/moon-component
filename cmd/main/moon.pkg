@@ -1,8 +1,0 @@
-import {
-  "mizchi/moon_component" @lib,
-}
-
-options(
-  supported_targets: [ "native" ],
-  "is-main": true,
-)
