@@ -8,6 +8,7 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
   let mut wit_path : String? = None
   let mut world_name : String? = None
   let mut output_path : String? = None
+  let mut package_name : String? = None
   let mut i = 2
   while i < args.length() {
     if (args[i] == "--wit" || args[i] == "--wit-dir") && i + 1 < args.length() {
@@ -19,6 +20,9 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
     } else if (args[i] == "-o" || args[i] == "--output") &&
       i + 1 < args.length() {
       output_path = Some(args[i + 1])
+      i = i + 2
+    } else if args[i] == "--package" && i + 1 < args.length() {
+      package_name = Some(args[i + 1])
       i = i + 2
     } else if args[i].has_prefix("--") {
       println("Unknown option: " + args[i])
@@ -44,11 +48,25 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
     @sys.exit(1)
   }
 
+  // Auto-detect package info from moon.mod.json if --package not specified
+  let detected_package = match package_name {
+    Some(p) => Some(p)
+    None => detect_moon_mod_package(input, wit)
+  }
+  // Note: WIT version is NOT added here because wasm-tools component new
+  // requires import names to match exactly, and versioned packages change
+  // the import namespace. Use `wkg publish --package <ns:name@version>`
+  // to set the registry package name at publish time.
+  let effective_wit = wit
+  if detected_package is Some(pkg) {
+    println("Publish hint: wkg publish --package " + shell_quote(pkg) + " " + output)
+  }
+
   // Resolve WIT
   let resolved_result : Result[@wit.ResolveInput, @wit.ParseError] = match
     world_name {
-    Some(name) => @wit.resolve_path(wit, world=name)
-    None => @wit.resolve_path(wit)
+    Some(name) => @wit.resolve_path(effective_wit, world=name)
+    None => @wit.resolve_path(effective_wit)
   }
   let resolved = match resolved_result {
     Ok(v) => v
@@ -149,7 +167,7 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
     // wasm-tools component embed
     let rc3 = run_shell_cmd(
       "wasm-tools component embed " +
-      shell_quote(wit) +
+      shell_quote(effective_wit) +
       " --world " +
       shell_quote(world_arg) +
       " " +
@@ -197,7 +215,7 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
 
     let rc = run_shell_cmd(
       "wasm-tools component embed " +
-      shell_quote(wit) +
+      shell_quote(effective_wit) +
       " --world " +
       shell_quote(world_arg) +
       " " +
@@ -234,7 +252,10 @@ async fn cmd_componentize(args : Array[String]) -> Unit {
 ///|
 fn componentize_usage() -> Unit {
   println(
-    "Usage: moon-component componentize <core.wasm> --wit <wit-dir> [--world <name>] -o <output.wasm>",
+    "Usage: moon-component componentize <core.wasm> --wit <wit-dir> [--world <name>] [--package <ns:name@version>] -o <output.wasm>",
+  )
+  println(
+    "  --package: Override WIT package name (auto-detected from moon.mod.json if omitted)",
   )
 }
 
@@ -561,6 +582,100 @@ fn string_substring(s : String, start : Int, end : Int) -> String {
   sb.to_string()
 }
 
+///|
+/// Auto-detect package name from moon.mod.json.
+/// Searches upward from the input wasm path and the wit directory.
+/// moon.mod.json "name" field is like "mizchi/bit", version is like "0.33.3"
+/// Returns "mizchi:bit@0.33.3" format for WIT package declaration.
+async fn detect_moon_mod_package(input_path : String, wit_path : String) -> String? {
+  // Try to find moon.mod.json by walking up from the input/wit paths and CWD
+  let cwd = @sys.get_env_var("PWD").unwrap_or(".")
+  let candidates = [wit_path, input_path, cwd]
+  for candidate in candidates {
+    let dir = parent_dir_of(candidate)
+    let mut search_dir = dir
+    for _ in 0..<10 {
+      // max depth
+      let mod_path = search_dir + "/moon.mod.json"
+      let file_data = @fs.read_file(mod_path) catch { _ => break }
+      let text = file_data.text() catch { _ => break }
+      let parsed = parse_moon_mod_json(text)
+      match parsed {
+        Some((name, version)) => {
+          // Convert "mizchi/bit" + "0.33.3" -> "mizchi:bit@0.33.3"
+          let wit_pkg = name.replace(old="/", new=":") + "@" + version
+          println(
+            "Auto-detected package: " + wit_pkg + " (from " + mod_path + ")",
+          )
+          return Some(wit_pkg)
+        }
+        None => ()
+      }
+      let parent = parent_dir_of(search_dir)
+      if parent == search_dir || parent.length() == 0 {
+        break
+      }
+      search_dir = parent
+    }
+  }
+  None
+}
+
+///|
+/// Parse moon.mod.json to extract name and version.
+fn parse_moon_mod_json(content : String) -> (String, String)? {
+  let mut name : String? = None
+  let mut version : String? = None
+  for line_view in content.split("\n") {
+    let line = trim_string(line_view.to_string())
+    if line.has_prefix("\"name\"") {
+      let val = extract_json_string_value(line)
+      match val {
+        Some(v) => name = Some(v)
+        None => ()
+      }
+    } else if line.has_prefix("\"version\"") {
+      let val = extract_json_string_value(line)
+      match val {
+        Some(v) => version = Some(v)
+        None => ()
+      }
+    }
+  }
+  match (name, version) {
+    (Some(n), Some(v)) => Some((n, v))
+    _ => None
+  }
+}
+
+///|
+/// Extract string value from a JSON line like: "key": "value",
+fn extract_json_string_value(line : String) -> String? {
+  // Find the second quoted string (the value)
+  let colon = string_index_of(line, ":")
+  guard colon is Some(ci) else { return None }
+  let after_colon = string_substring(line, ci + 1, line.length())
+  find_quoted_string(after_colon, 0).map(fn(pair) { pair.0 })
+}
+
+///|
+/// Get the parent directory of a path.
+fn parent_dir_of(path : String) -> String {
+  let mut last_slash = -1
+  for i in 0..<path.length() {
+    if path.to_array()[i] == '/' {
+      last_slash = i
+    }
+  }
+  if last_slash <= 0 {
+    return "."
+  }
+  string_substring(path, 0, last_slash)
+}
+
+///|
+/// Rewrite the WIT package declaration in a temporary directory.
+/// Returns the temp directory path if rewriting was done, None if not needed.
 ///|
 fn parse_int(s : String) -> Int? {
   let trimmed = trim_string(s)
