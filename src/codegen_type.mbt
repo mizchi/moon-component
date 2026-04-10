@@ -882,11 +882,18 @@ fn Generator::type_name_with_prefix(
             Some(t) => self.type_name(t)
             None => "Unit"
           }
+          // Normalize empty tuple (from bare `result` or `result<tuple<>, tuple<>>`) to Unit
+          let ok_str = if ok_str == "()" { "Unit" } else { ok_str }
+          let err_str = if err_str == "()" { "Unit" } else { err_str }
           "Result[" + ok_str + ", " + err_str + "]"
         }
         Tuple(types) => {
-          let parts = types.map(fn(t) { self.type_name(t) })
-          "(" + parts.join(", ") + ")"
+          if types.length() == 0 {
+            "Unit"
+          } else {
+            let parts = types.map(fn(t) { self.type_name(t) })
+            "(" + parts.join(", ") + ")"
+          }
         }
         _ => {
           let base_name = self.resolve_type_name_with_prefix(id, use_prefix)

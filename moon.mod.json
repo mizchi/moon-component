@@ -3,7 +3,7 @@
   "version": "0.5.1",
   "deps": {
     "moonbitlang/x": "0.4.40",
-    "mizchi/x": "0.1.3",
+    "mizchi/x": "0.2.0",
     "mizchi/wit": "0.2.4",
     "mizchi/mwac": "0.1.5",
     "moonbitlang/async": "0.16.6"

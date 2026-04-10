@@ -17,7 +17,7 @@ fn ffi_output_stream_blocking_write_and_flush(
 
 ///|
 extern "wasm" fn ffi_mem_store32(ptr : Int, val : Int) -> Unit =
-  #|(func (param i32 i32) (result i32) (i32.store (local.get 0) (local.get 1)) (i32.const 0))
+  #|(func (param i32 i32) (i32.store (local.get 0) (local.get 1)))
 
 ///|
 extern "wasm" fn ffi_memory_size_pages() -> Int =
