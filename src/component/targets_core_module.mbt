@@ -154,7 +154,7 @@ fn parse_core_module_detail_from_wasm(
     let imports : Array[CoreModuleExtern] = []
     let exports : Array[CoreModuleExtern] = []
     let func_type_indices : Array[UInt] = []
-    while not(parser.eof()) {
+    while !(parser.eof()) {
       let section_id = parser.read_byte().to_uint()
       let section_size = parser.read_u32_leb128()
       let section_start = parser.get_pos()
@@ -181,19 +181,19 @@ fn parse_core_module_detail_from_wasm(
               }
               0x01 => {
                 skip_wasm_table_type(parser)
-                if not(opts.best_effort) {
+                if !(opts.best_effort) {
                   return Err("unsupported core module import kind: table")
                 }
               }
               0x02 => {
                 skip_wasm_memory_type(parser)
-                if not(opts.best_effort) {
+                if !(opts.best_effort) {
                   return Err("unsupported core module import kind: memory")
                 }
               }
               0x03 => {
                 skip_wasm_global_type(parser)
-                if not(opts.best_effort) {
+                if !(opts.best_effort) {
                   return Err("unsupported core module import kind: global")
                 }
               }
@@ -223,7 +223,7 @@ fn parse_core_module_detail_from_wasm(
               }
               let type_idx = func_type_indices[index.reinterpret_as_int()]
               exports.push({ name, kind, type_idx })
-            } else if not(opts.best_effort) {
+            } else if !(opts.best_effort) {
               return Err(
                 "unsupported core module export kind: 0x\{kind.to_string()}",
               )

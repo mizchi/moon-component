@@ -154,9 +154,13 @@ fn eq_type_kind(
         if a_field.name != b_field.name {
           return false
         }
-        if not(
-            eq_rtype(a_res, a_field.field_type, b_res, b_field.field_type, seen),
-          ) {
+        if !eq_rtype(
+          a_res,
+          a_field.field_type,
+          b_res,
+          b_field.field_type,
+          seen,
+        ) {
           return false
         }
       }
@@ -172,9 +176,13 @@ fn eq_type_kind(
         if a_case.name != b_case.name {
           return false
         }
-        if not(
-            eq_rtype_opt(a_res, a_case.case_type, b_res, b_case.case_type, seen),
-          ) {
+        if !eq_rtype_opt(
+          a_res,
+          a_case.case_type,
+          b_res,
+          b_case.case_type,
+          seen,
+        ) {
           return false
         }
       }
@@ -195,7 +203,7 @@ fn eq_type_kind(
         return false
       }
       for i in 0..<a_items.length() {
-        if not(eq_rtype(a_res, a_items[i], b_res, b_items[i], seen)) {
+        if !(eq_rtype(a_res, a_items[i], b_res, b_items[i], seen)) {
           return false
         }
       }
@@ -249,7 +257,7 @@ fn eq_function(
     if a_name != b_name {
       return false
     }
-    if not(eq_rtype(a_res, a_ty, b_res, b_ty, seen)) {
+    if !(eq_rtype(a_res, a_ty, b_res, b_ty, seen)) {
       return false
     }
   }
@@ -270,7 +278,7 @@ fn eq_interface(
   for name, a_func in a_iface.functions {
     match b_iface.functions.get(name) {
       Some(b_func) =>
-        if not(eq_function(a_res, a_func, b_res, b_func, seen)) {
+        if !(eq_function(a_res, a_func, b_res, b_func, seen)) {
           return false
         }
       None => return false
@@ -282,7 +290,7 @@ fn eq_interface(
   for name, a_id in a_iface.types {
     match b_iface.types.get(name) {
       Some(b_id) =>
-        if not(eq_type_def(a_res, a_id, b_res, b_id, seen)) {
+        if !(eq_type_def(a_res, a_id, b_res, b_id, seen)) {
           return false
         }
       None => return false
@@ -349,7 +357,7 @@ pub fn check_plug_wit(
         None => ()
       }
     }
-    if candidate && not(matched) {
+    if candidate && !(matched) {
       return Err("WIT mismatch for import `\{name}`")
     }
   }

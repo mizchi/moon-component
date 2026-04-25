@@ -72,7 +72,7 @@ pub fn check_interface(
     }
   }
   for name, _ in export_map {
-    if not(matched.contains(name)) {
+    if !(matched.contains(name)) {
       errors.push("\{label} extra export `\{name}`")
     }
   }

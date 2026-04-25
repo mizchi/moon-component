@@ -269,7 +269,7 @@ fn Generator::type_returns_multivalue(
     None => false
     Some(ty) =>
       match ty {
-        String_ => not(self.opts.use_js_string_builtins)
+        String_ => !(self.opts.use_js_string_builtins)
         Id(id) => {
           let typedef = self.resolve.types[id]
           match typedef.kind {

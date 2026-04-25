@@ -76,7 +76,7 @@ fn normalize_func_name(name : String, kind : @resolve.FunctionKind) -> String {
         let sb = StringBuilder::new()
         let mut dot_found = false
         for c in rest {
-          if c == '.' && not(dot_found) {
+          if c == '.' && !(dot_found) {
             sb.write_char('_')
             dot_found = true
           } else if c == '-' {
@@ -98,7 +98,7 @@ fn normalize_func_name(name : String, kind : @resolve.FunctionKind) -> String {
         let sb = StringBuilder::new()
         let mut dot_found = false
         for c in rest {
-          if c == '.' && not(dot_found) {
+          if c == '.' && !(dot_found) {
             sb.write_char('_')
             dot_found = true
           } else if c == '-' {
@@ -296,7 +296,7 @@ pub fn Generator::detect_dependencies(
             if is_external {
               let pkg = self.resolve.packages[pkg_id]
               let key = pkg.name.ns + ":" + pkg.name.name
-              if not(seen.contains(key)) {
+              if !(seen.contains(key)) {
                 seen[key] = true
                 deps.push({
                   ns: pkg.name.ns,

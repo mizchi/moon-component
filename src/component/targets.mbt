@@ -788,7 +788,7 @@ fn check_instance_type(
     }
   }
   for name, _ in export_map_b {
-    if not(matched.contains(name)) {
+    if !(matched.contains(name)) {
       return Err("instance export extra")
     }
   }
@@ -1330,7 +1330,7 @@ pub fn check_component_targets(
     }
   }
   for name, _ in comp_imports {
-    if not(matched_imports.contains(name)) {
+    if !(matched_imports.contains(name)) {
       errors.push("import extra: `\{name}`")
     }
   }
@@ -1404,7 +1404,7 @@ pub fn check_component_targets(
     }
   }
   for name, _ in comp_exports {
-    if not(matched_exports.contains(name)) {
+    if !(matched_exports.contains(name)) {
       errors.push("export extra: `\{name}`")
     }
   }

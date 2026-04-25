@@ -38,7 +38,7 @@ fn parse_component_info_raise(bytes : Bytes) -> ComponentInfo raise ParseError {
   }
   let imports : Array[ImportInfo] = []
   let exports : Array[ExportInfo] = []
-  while not(parser.eof()) {
+  while !(parser.eof()) {
     let section_id = parser.read_byte().to_uint()
     let section_size = parser.read_u32_leb128()
     let section_start = parser.get_pos()
@@ -110,7 +110,7 @@ fn parse_component_detail_raise(
   let imported_instances : Array[ComponentTypeRef] = []
   let core_modules : Array[Bytes] = []
   let core_types : Array[CoreTypeRaw] = []
-  while not(parser.eof()) {
+  while !(parser.eof()) {
     let section_id = parser.read_byte().to_uint()
     let section_size = parser.read_u32_leb128()
     let section_start = parser.get_pos()

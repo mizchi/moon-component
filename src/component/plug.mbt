@@ -241,7 +241,7 @@ pub fn plug_components(
   let used_plug_flags : Array[Bool] = Array::make(plug_infos.length(), false)
   let mut used_plug = false
   for imp in socket_info.imports {
-    if not(is_supported_kind(imp.kind)) {
+    if !(is_supported_kind(imp.kind)) {
       return Err(fail_unsupported(imp.name, imp.kind))
     }
     match match_plug_export(imp.name, imp.kind, plug_exports) {
@@ -267,7 +267,7 @@ pub fn plug_components(
       }
     }
   }
-  if not(used_plug) {
+  if !(used_plug) {
     return Err(PlugError::NoPlugHappened)
   }
   let merged_imports : Array[ImportInfo] = []
@@ -356,7 +356,7 @@ pub fn plug_components(
 
   // Validate that all exports used are supported
   for exp in socket_info.exports {
-    if not(is_supported_kind(exp.kind)) {
+    if !(is_supported_kind(exp.kind)) {
       return Err(
         PlugError::Unsupported(
           "unsupported export kind for `\{exp.name.to_string()}`: \{exp.kind.to_string()}",
@@ -479,7 +479,7 @@ pub fn plug_components(
       encode_u32_leb128(used_plug_count.reinterpret_as_uint()),
     )
     for i in 0..<plug_bytes.length() {
-      if not(used_plug_flags[i]) {
+      if !(used_plug_flags[i]) {
         continue
       }
       let comp_idx = match plug_component_indices[i] {

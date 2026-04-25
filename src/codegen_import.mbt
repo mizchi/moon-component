@@ -181,7 +181,7 @@ fn Generator::is_primitive_function(
   // Check all params
   for param in func.params {
     let (_, ty) = param
-    if not(self.is_primitive_type(ty)) {
+    if !(self.is_primitive_type(ty)) {
       return false
     }
   }
@@ -258,7 +258,7 @@ fn Generator::import_needs_retptr_type(
   ty : @resolve.Type,
 ) -> Bool {
   match ty {
-    String_ => not(self.opts.use_js_string_builtins)
+    String_ => !(self.opts.use_js_string_builtins)
     Id(id) => {
       let typedef = self.resolve.types[id]
       match typedef.kind {
